@@ -1,3 +1,11 @@
+// ============================================================================
+//  Project 4:  Scan Matching Localization
+//  Authors:    Andreas Albrecht using code base/skeleton provided by Udacity
+//  Source:		https://www.udacity.com/
+// 
+//  Copyright © 2012 - 2021, Udacity, Inc.
+//  Copyright © 2022 Andreas Albrecht
+// ============================================================================
 
 #include <carla/client/Client.h>
 #include <carla/client/ActorBlueprint.h>

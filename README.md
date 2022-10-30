@@ -139,7 +139,7 @@ The achieved results using NDT are shown below for 3 time steps at the beginning
 <img src="screenshots/NDT_test_final_pose_2022-10-16.png"/>
 
 ## License
-Remarks: Since the the code in this repository was provided by [Udacity](https://www.udacity.com/) in a Udacity student workspace, it automatically falls under the Udacity license, too:https://carla.org/
+Remarks: Since the the code in this repository was provided by [Udacity](https://www.udacity.com/) in a Udacity student workspace, it automatically falls under the Udacity license, too:
 
 [LICENSE.md](./LICENSE.md)
 
