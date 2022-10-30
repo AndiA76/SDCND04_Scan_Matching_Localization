@@ -61,7 +61,18 @@ struct Pose{
 
 	Pose operator-(const Pose& p)
     {
-        Pose result(Point(position.x-p.position.x, position.y-p.position.y, position.z-p.position.z), Rotate(rotation.yaw-p.rotation.yaw, rotation.pitch-p.rotation.pitch, rotation.roll-p.rotation.roll) );
+        Pose result(
+			Point(
+				position.x-p.position.x,
+				position.y-p.position.y,
+				position.z-p.position.z
+			),
+			Rotate(
+				rotation.yaw-p.rotation.yaw,
+				rotation.pitch-p.rotation.pitch,
+				rotation.roll-p.rotation.roll
+			)
+		);
         return result;
     }
 };
@@ -105,17 +116,32 @@ struct BoxQ
 };
 
 Eigen::Matrix4d transform2D(double theta, double xt, double yt);
-Eigen::Matrix4d transform3D(double yaw, double pitch, double roll, double xt, double yt, double zt);
+Eigen::Matrix4d transform3D(
+	double yaw, double pitch, double roll, double xt, double yt, double zt
+);
 Pose getPose(Eigen::Matrix4d matrix);
 double getDistance(Point p1, Point p2);
 double minDistance(Point p1, vector<Point> points);
 void print4x4Matrix (const Eigen::Matrix4d & matrix);
 void print4x4Matrixf (const Eigen::Matrix4f & matrix);
-void renderPointCloud(pcl::visualization::PCLVisualizer::Ptr& viewer, const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud, std::string name, Color color, int renderSize = 4);
-void renderRay(pcl::visualization::PCLVisualizer::Ptr& viewer, Point p1, Point p2, std::string name, Color color);
-void renderPath(pcl::visualization::PCLVisualizer::Ptr& viewer, const PointCloudT::Ptr& cloud, std::string name, Color color);
+void renderPointCloud(
+	pcl::visualization::PCLVisualizer::Ptr& viewer,
+	const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+	std::string name, Color color, int renderSize = 4
+);
+void renderRay(
+	pcl::visualization::PCLVisualizer::Ptr& viewer, Point p1, Point p2,
+	std::string name, Color color
+);
+void renderPath(
+	pcl::visualization::PCLVisualizer::Ptr& viewer, const PointCloudT::Ptr& cloud,
+	std::string name, Color color
+);
 Eigen::Quaternionf getQuaternion(float theta);
-void renderBox(pcl::visualization::PCLVisualizer::Ptr& viewer, BoxQ box, int id, Color color, float opacity);
+void renderBox(
+	pcl::visualization::PCLVisualizer::Ptr& viewer, BoxQ box, int id,
+	Color color, float opacity
+);
 
 struct LineSegment{
 	// slope of y component
