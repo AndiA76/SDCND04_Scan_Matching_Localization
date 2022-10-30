@@ -1,10 +1,10 @@
 # SDCND04_Scan_Matching_Localization
 Project 4 of Udacity's "Self-Driving Car Engineer" Nanodegree Program about scan matching algorithms for object localization using lidar point clouds.
 
-The goal of this project is to localize a virtual car driving in a simulation for at least 170m from the starting position and never exceeding a distance pose error of 1.2m. The simulation car is equipped with a lidar sensor. The simulator provides lidar scans at regular intervals. There is also a point cloud map (map.pcd)[./map.pcd] already available. This point cloud map has been extracted from some demo environment of the (CARLA simulator)[https://carla.org/]. By using point registration matching between the map and the incoming lidar scans, localization for the car can be accomplished at every time step.
+The goal of this project is to localize a virtual car driving in a simulation for at least 170m from the starting position and never exceeding a distance pose error of 1.2m. The simulation car is equipped with a lidar sensor. The simulator provides lidar scans at regular intervals. There is also a point cloud map [map.pcd](./map.pcd) already available. This point cloud map has been extracted from some demo environment of the [CARLA simulator][https://carla.org/). By using point registration matching between the map and the incoming lidar scans, localization for the car can be accomplished at every time step.
 
 ## Setup and Usage
-All the work is done in a pre-set virtual environment in a Udacity workspace. It contains a running installation of (CARLA simulator)[https://carla.org/]. All the dependencies to run the project are provided in this workspace, though if you have a strong local system then you can get a performance/speed boost from setting up and running there. The project code is implemented in (c3-main.cpp)[./c3-main.cpp]. The helper functions in (helper.cpp)[./helper.cpp] are provided by Udacity.
+All the work is done in a pre-set virtual environment in a Udacity workspace. It contains a running installation of [CARLA simulator](https://carla.org/). All the dependencies to run the project are provided in this workspace, though if you have a strong local system then you can get a performance/speed boost from setting up and running there. The project code is implemented in [c3-main.cpp](./c3-main.cpp). The helper functions in [helper.cpp](./helper.cpp) are provided by Udacity.
 
 ### Running the program
 To run the program in the Udacity workspace the following steps need to be taken:
@@ -62,7 +62,7 @@ Step 1: Filter the lidar scan using voxel filter
 A voxel grid filter is used to reduce the number of points from each lidar scan to be considered for further processing. This reduces the computational time, but it also reduces the available informaiton to match the current environmental scan with the exising point cloud map. In general, a lower number of lidar scan points after filter tendentially leads to higher localization errors because less points are used as reference.
 
 Step 2: Find pose transform by using ICP or NDT matching
-To find a pose transform two different scan matching methods have been implemented making use of (point cloud library)[https://pointclouds.org/] functions:
+To find a pose transform two different scan matching methods have been implemented making use of [point cloud library]([https://pointclouds.org/) functions:
 - "Iterative Closest Point (ICP)" algorithm => scanMatchingByICP()
 - "Normal Distributions Transform (NDT)" => scanMatchingByNDT()
 Both functions return a 4D tranformation matrix, which can be used to align the current lidar scan to a new determined pose estimation of the simualated car. The new pose of the car is obtained by using the getPose() helper function.
@@ -90,9 +90,9 @@ Achieved maximum pose error over 170 m simulated driving distance using NDT and 
 - maximum pose error = approx. 0.64 m
 
 The achieved results using ICP are shown below for 3 time steps at the beginning, in the middel and at the end of the simulation:
-[./screenshots/ICP_test_start_pose_2022-10-16.png]
-[./screenshots/ICP_test_mid_pose_2022-10-16.png]
-[./screenshots/ICP_test_final_pose_2022-10-16.png]
+<img src="screenshots/ICP_test_start_pose_2022-10-16.png"/>
+<img src="screenshots/ICP_test_mid_pose_2022-10-16.png"/>
+<img src="screenshots/ICP_test_final_pose_2022-10-16.png"/>
 
 ## Results for Normal Distributions Transform (NDT) Algorithm
 As described above you need to pass ´´´NDT´´´ as additional parameter to the function call of ´´´cloud_loc´´´ after the Carla simulation has been started:
@@ -114,9 +114,9 @@ Achieved maximum pose error over 170 m simulated driving distance using NDT and 
 - maximum pose error = approx. 0.45 m
 
 The achieved results using ICP are shown below for 3 time steps at the beginning, in the middel and at the end of the simulation:
-[./screenshots/NDT_test_start_pose_2022-10-16.png]
-[./screenshots/NDT_test_mid_pose_2022-10-16.png]
-[./screenshots/NDT_test_final_pose_2022-10-16.png]
+<img src="screenshots/NDT_test_start_pose_2022-10-16.png"/>
+<img src="screenshots/NDT_test_mid_pose_2022-10-16.png"/>
+<img src="screenshots/NDT_test_final_pose_2022-10-16.png"/>
 
 ## License
 Remarks: Since the the code in this repository was provided by [Udacity](https://www.udacity.com/) in a Udacity student workspace, it automatically falls under the Udacity license, too:https://carla.org/
