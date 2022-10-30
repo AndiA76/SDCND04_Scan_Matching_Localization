@@ -1,7 +1,7 @@
 // ============================================================================
-//  Project 4:  Scan Matching Localization
+//  Project 4:  Scan Matching Localization (Self-Driving Car Engineer Program)
 //  Authors:    Andreas Albrecht using code base/skeleton provided by Udacity
-//  Source:		https://www.udacity.com/
+//  Source:	    https://www.udacity.com/
 // 
 //  Copyright © 2012 - 2021, Udacity, Inc.
 //  Copyright © 2022 Andreas Albrecht
