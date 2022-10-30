@@ -45,7 +45,8 @@ bool refresh_view = false;
 void keyboardEventOccurred(const pcl::visualization::KeyboardEvent &event, void* viewer)
 {
 
-  	//boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = *static_cast<boost::shared_ptr<pcl::visualization::PCLVisualizer> *>(viewer_void);
+  	//boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = 
+	//	*static_cast<boost::shared_ptr<pcl::visualization::PCLVisualizer> *>(viewer_void);
 	if (event.getKeySym() == "Right" && event.keyDown()){
 		cs.push_back(ControlState(0, -0.02, 0));
   	}
@@ -91,7 +92,8 @@ void Actuate(ControlState response, cc::Vehicle::Control& state){
 }
 
 // Draw 3D bounding box representing the car's current pose
-void drawCar(Pose pose, int num, Color color, double alpha, pcl::visualization::PCLVisualizer::Ptr& viewer){
+void drawCar(Pose pose, int num, Color color, double alpha,
+	pcl::visualization::PCLVisualizer::Ptr& viewer){
 
 	BoxQ box;
 	box.bboxTransform = Eigen::Vector3f(pose.position.x, pose.position.y, 0);
@@ -105,7 +107,7 @@ void drawCar(Pose pose, int num, Color color, double alpha, pcl::visualization::
 // Normal Distributions Transform (NDT) Scan Matching Algorithm
 Eigen::Matrix4d scanMatchingByNDT(
 	PointCloudT::Ptr target, PointCloudT::Ptr source, Pose initialPose,
-	double epsilon = 1e-4, int maxIter = 20) {
+	double epsilon = 1e-6, int maxIter = 60) {
 
 	// Set timer to measure processing time
 	pcl::console::TicToc time;
@@ -319,11 +321,17 @@ int main(int arg_cnt, char * arg_vec[]) {
 		if(new_scan){
 			auto scan = boost::static_pointer_cast<csd::LidarMeasurement>(data);
 			for (auto detection : *scan){
-				if((detection.point.x*detection.point.x + detection.point.y*detection.point.y + detection.point.z*detection.point.z) > 8.0){ // Don't include points touching ego
-					pclCloud.points.push_back(PointT(detection.point.x, detection.point.y, detection.point.z));
+				if(
+					(
+						detection.point.x*detection.point.x + detection.point.y*detection.point.y + 
+						detection.point.z*detection.point.z
+					) > 8.0){ // Don't include points touching ego
+					pclCloud.points.push_back(
+						PointT(detection.point.x, detection.point.y, detection.point.z)
+					);
 				}
 			}
-			if(pclCloud.points.size() > 5000){ // CANDO: Can modify this value to get different scan resolutions
+			if(pclCloud.points.size() > 5000){ // CANDO: Modify this value to get different scan resolutions
 				lastScanTime = std::chrono::system_clock::now();
 				*scanCloud = pclCloud;
 				new_scan = false;
@@ -331,7 +339,18 @@ int main(int arg_cnt, char * arg_vec[]) {
 		}
 	});
 	
-	Pose poseRef(Point(vehicle->GetTransform().location.x, vehicle->GetTransform().location.y, vehicle->GetTransform().location.z), Rotate(vehicle->GetTransform().rotation.yaw * pi/180, vehicle->GetTransform().rotation.pitch * pi/180, vehicle->GetTransform().rotation.roll * pi/180));
+	Pose poseRef(
+		Point(
+			vehicle->GetTransform().location.x,
+			vehicle->GetTransform().location.y,
+			vehicle->GetTransform().location.z
+		),
+		Rotate(
+			vehicle->GetTransform().rotation.yaw * pi/180,
+			vehicle->GetTransform().rotation.pitch * pi/180,
+			vehicle->GetTransform().rotation.roll * pi/180
+		)
+	);
 	double maxError = 0;
 
 	while (!viewer->wasStopped())
@@ -341,19 +360,44 @@ int main(int arg_cnt, char * arg_vec[]) {
 			world.Tick(1s);
 		}
 		if(refresh_view){
-			viewer->setCameraPosition(pose.position.x, pose.position.y, 60, pose.position.x+1, pose.position.y+1, 0, 0, 0, 1);
+			viewer->setCameraPosition(pose.position.x, pose.position.y, 60, pose.position.x+1,
+				pose.position.y+1, 0, 0, 0, 1);
 			refresh_view = false;
 		}
 		
 		viewer->removeShape("box0");
 		viewer->removeShape("boxFill0");
-		Pose truePose = Pose(Point(vehicle->GetTransform().location.x, vehicle->GetTransform().location.y, vehicle->GetTransform().location.z), Rotate(vehicle->GetTransform().rotation.yaw * pi/180, vehicle->GetTransform().rotation.pitch * pi/180, vehicle->GetTransform().rotation.roll * pi/180)) - poseRef;
+		Pose truePose = Pose(
+			Point(
+				vehicle->GetTransform().location.x,
+				vehicle->GetTransform().location.y,
+				vehicle->GetTransform().location.z
+			),
+			Rotate(
+				vehicle->GetTransform().rotation.yaw * pi/180,
+				vehicle->GetTransform().rotation.pitch * pi/180,
+				vehicle->GetTransform().rotation.roll * pi/180
+			)
+		) - poseRef;
 		drawCar(truePose, 0,  Color(1,0,0), 0.7, viewer);
 		double theta = truePose.rotation.yaw;
 		double stheta = control.steer * pi/4 + theta;
 		viewer->removeShape("steer");
-		renderRay(viewer, Point(truePose.position.x+2*cos(theta), truePose.position.y+2*sin(theta),truePose.position.z),  Point(truePose.position.x+4*cos(stheta), truePose.position.y+4*sin(stheta),truePose.position.z), "steer", Color(0,1,0));
-
+		renderRay(
+			viewer,
+			Point(
+				truePose.position.x+2*cos(theta),
+				truePose.position.y+2*sin(theta),
+				truePose.position.z
+			),
+			Point(
+				truePose.position.x+4*cos(stheta),
+				truePose.position.y+4*sin(stheta),
+				truePose.position.z
+			),
+			"steer",
+			Color(0,1,0)
+		);
 
 		ControlState actuate(0, 0, 1);
 		if(cs.size() > 0){
@@ -427,13 +471,15 @@ int main(int arg_cnt, char * arg_vec[]) {
 			viewer->removeAllShapes();
 			drawCar(pose, 1,  Color(0,1,0), 0.35, viewer);
           
-          	double poseError = sqrt( 
+          	double poseError = sqrt(
 				  (truePose.position.x - pose.position.x) * (truePose.position.x - pose.position.x) + 
-				  (truePose.position.y - pose.position.y) * (truePose.position.y - pose.position.y) );
+				  (truePose.position.y - pose.position.y) * (truePose.position.y - pose.position.y)
+			);
 			if(poseError > maxError)
 				maxError = poseError;
-			double distDriven = sqrt( 
-				(truePose.position.x) * (truePose.position.x) + (truePose.position.y) * (truePose.position.y) );
+			double distDriven = sqrt(
+				(truePose.position.x) * (truePose.position.x) + (truePose.position.y) * (truePose.position.y)
+			);
 			viewer->removeShape("maxE");
 			viewer->addText("Max Error: "+to_string(maxError)+" m", 200, 100, 32, 1.0, 1.0, 1.0, "maxE",0);
 			viewer->removeShape("derror");
