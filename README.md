@@ -24,14 +24,14 @@ make
 ```
 su - student
 
-cd /home/workspace
+cd /home/workspace/c3-project
 
 ./run-carla.sh
 ```
 
 3. Run the project code in the first tab (Terminal Tab 1)
 
-Two different scan matching algorithms "Iterative Closest Point (ICP)" or "Normal Distributions Transform (NDT)" have been implemented. You can choose between them by adding either "ICP" or "NDT" as additional argument to the call of ```./cloud_loc```.
+Two different scan matching algorithms "Iterative Closest Point (ICP)" or "Normal Distributions Transform (NDT)" have been implemented. You can choose between them by adding either ```ICP``` or ```NDT``` as additional argument to the call of ```./cloud_loc```.
 
 ```
 cd /home/workspace/c3-project
@@ -71,20 +71,20 @@ Press this key to recenter the camera with a top down view of the car.
 ## Implementation of the tasks
 To fulfill the project requirements, a voxel filter and a scan matching technique using ICP or NDT are implemented to find a pose transfrom matching the current lidar scans with the point cloud map, which in turn gives a location update to the current pose of the car.
 
-Step 1: Filter the lidar scan using voxel filter
+**Step 1: Filter the lidar scan using voxel filter**
 
 A voxel grid filter is used to reduce the number of points from each lidar scan to be considered for procesing in the scan matching step. This reduces the computational load and the processing time, but it also deminishes the extend of information about the 3D environment available in each scan point cloud that can be matched with the exising point cloud map. In general, a lower number of lidar scan points remaining in the filtered scan point cloud tendentially leads to higher localization errors because less points are avaible that can be used as a reference.
 
-Step 2: Find pose transform by using ICP or NDT matching
+**Step 2: Find pose transform by using ICP or NDT matching**
 
 In order to find a pose transform, two different scan matching methods are implemented in [c3-main.cpp](./c3-main.cpp) making use of [point cloud library]([https://pointclouds.org/) (PCL) functionality. You can find the implementation of ICP resp. NDT in the following functions:
 
-- "Iterative Closest Point (ICP)" algorithm => scanMatchingByICP()
-- "Normal Distributions Transform (NDT)" => scanMatchingByNDT()
+- "Iterative Closest Point (ICP)" algorithm => ```scanMatchingByICP()```
+- "Normal Distributions Transform (NDT)" => ```scanMatchingByNDT()```
 
-Both functions return a 4D tranformation matrix, which can be used to align the current lidar scan to a new determined pose estimation of the simualated car. The new pose of the car is obtained by using the getPose() helper function.
+Both functions return a 4D tranformation matrix, which can be used to align the current lidar scan to a new determined pose estimation of the simualated car. The new pose of the car is obtained by using the ```getPose()``` helper function.
 
-Step 3: Transform the scan so it aligns with ego's actual pose and render that scan
+**Step 3: Transform the scan so it aligns with ego's actual pose and render that scan**
 
 In this final step, the filtered lidar scan cloud is transformed into a new point cloud using in-built PCL functions and the calculated transform from the previous step. Afterwards the input ```scanCloud``` to the point cloud rendering function ```renderPointCloud``` is updated with the newly calculated values of the transformed lidar scan cloud.
 
