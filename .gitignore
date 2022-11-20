@@ -41,3 +41,5 @@
 # tar files
 *.tgz
 
+# VSCode settings
+.VSCode

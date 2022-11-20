@@ -31,17 +31,20 @@ using namespace std::string_literals;
 
 using namespace std;
 
+#include <chrono>
+#include <cmath>
+#include <ctime>
+#include <sstream>
 #include <string>
 #include <pcl/io/pcd_io.h>
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/filters/voxel_grid.h>
-#include "helper.h"
-#include <sstream>
-#include <chrono> 
-#include <ctime> 
 #include <pcl/registration/icp.h>
 #include <pcl/registration/ndt.h>
 #include <pcl/console/time.h>   // TicToc
+
+#include "helper.h"
+#include "ukf.h"
 
 PointCloudT pclCloud;
 cc::Vehicle::Control control;
@@ -95,7 +98,7 @@ void Actuate(ControlState response, cc::Vehicle::Control& state){
 
 		}
 	}
-	state.steer = min( max(state.steer+response.s, -1.0f), 1.0f);
+	state.steer = min(max(state.steer+response.s, -1.0f), 1.0f);
 	state.brake = response.b;
 }
 
@@ -105,17 +108,17 @@ void drawCar(Pose pose, int num, Color color, double alpha,
 
 	BoxQ box;
 	box.bboxTransform = Eigen::Vector3f(pose.position.x, pose.position.y, 0);
-    box.bboxQuaternion = getQuaternion(pose.rotation.yaw);
-    box.cube_length = 4;
-    box.cube_width = 2;
-    box.cube_height = 2;
+	box.bboxQuaternion = getQuaternion(pose.rotation.yaw);
+	box.cube_length = 4;
+	box.cube_width = 2;
+	box.cube_height = 2;
 	renderBox(viewer, box, num, color, alpha);
 }
 
 // Normal Distributions Transform (NDT) Scan Matching Algorithm
 Eigen::Matrix4d scanMatchingByNDT(
 	PointCloudT::Ptr target, PointCloudT::Ptr source, Pose initialPose,
-	double epsilon = 1e-6, int maxIter = 60) {
+	double epsilon = 1e-6, int maxIter = 4) {
 
 	// Set timer to measure processing time
 	pcl::console::TicToc time;
@@ -175,7 +178,7 @@ Eigen::Matrix4d scanMatchingByNDT(
 // Iterative Closest Point (ICP) Algorithm
 Eigen::Matrix4d scanMatchingByICP(
 	PointCloudT::Ptr target, PointCloudT::Ptr source, Pose initialPose,
-	double epsilon = 1e-4, int maxIter = 15){
+	double epsilon = 1e-6, int maxIter = 4){
 	
 	// Set timer to measure processing time
 	pcl::console::TicToc time;
@@ -290,13 +293,16 @@ int main(int arg_cnt, char * arg_vec[]) {
 	auto transform = map->GetRecommendedSpawnPoints()[1];
 	auto ego_actor = world.SpawnActor((*vehicles)[12], transform);
 
+	// Get simulation time from a snapshot of the current frame
+	auto timestamp = world.get_snapshot().timestamp;
+
 	// Create lidar
 	auto lidar_bp = *(blueprint_library->Find("sensor.lidar.ray_cast"));
 	// CANDO: Can modify lidar values to get different scan resolutions
 	lidar_bp.SetAttribute("upper_fov", "15");
-    lidar_bp.SetAttribute("lower_fov", "-25");
-    lidar_bp.SetAttribute("channels", "32");
-    lidar_bp.SetAttribute("range", "30");
+	lidar_bp.SetAttribute("lower_fov", "-25");
+	lidar_bp.SetAttribute("channels", "32");
+	lidar_bp.SetAttribute("range", "30");
 	lidar_bp.SetAttribute("rotation_frequency", "60");
 	lidar_bp.SetAttribute("points_per_second", "500000");
 
@@ -304,15 +310,20 @@ int main(int arg_cnt, char * arg_vec[]) {
 	auto lidar_transform = cg::Transform(cg::Location(-0.5, 0, 1.8) + user_offset);
 	auto lidar_actor = world.SpawnActor(lidar_bp, lidar_transform, ego_actor.get());
 	auto lidar = boost::static_pointer_cast<cc::Sensor>(lidar_actor);
-	bool new_scan = true;
+	bool new_scan = true;  // continue lidar scanning if set to true
 	std::chrono::time_point<std::chrono::system_clock> lastScanTime, startTime;
 
+	// Init point cloud visualization
 	pcl::visualization::PCLVisualizer::Ptr viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
   	viewer->setBackgroundColor (0, 0, 0);
 	viewer->registerKeyboardCallback(keyboardEventOccurred, (void*)&viewer);
 
+	// Init initial pose of the ego vehicle
 	auto vehicle = boost::static_pointer_cast<cc::Vehicle>(ego_actor);
 	Pose pose(Point(0,0,0), Rotate(0,0,0));
+
+	// Create instance of an Unscented Kalman Filter for ego vehicle tracking
+	UKF vehicle_ukf;
 
 	// Load map
 	PointCloudT::Ptr mapCloud(new PointCloudT);
@@ -324,6 +335,7 @@ int main(int arg_cnt, char * arg_vec[]) {
 	typename PointCloudT::Ptr cloudFiltered (new PointCloudT);
 	typename PointCloudT::Ptr scanCloud (new PointCloudT);
 
+	// Initialize listener to capture cyclic lidar measurements
 	lidar->Listen([&new_scan, &lastScanTime, &scanCloud](auto data){
 
 		if(new_scan){
@@ -345,8 +357,10 @@ int main(int arg_cnt, char * arg_vec[]) {
 				new_scan = false;
 			}
 		}
+
 	});
 	
+	// Initialize reference for the true starting pose of the ego vehicle
 	Pose poseRef(
 		Point(
 			vehicle->GetTransform().location.x,
@@ -359,22 +373,33 @@ int main(int arg_cnt, char * arg_vec[]) {
 			vehicle->GetTransform().rotation.roll * pi/180
 		)
 	);
+
+	// Initialize maximum positioning error w.r.t. true pose of the ego vehicle
 	double maxError = 0;
 
+	// Start simulation loop
 	while (!viewer->wasStopped())
   	{
+		// Increment simulation time as long as new_scan == true
 		while(new_scan){
 			std::this_thread::sleep_for(0.1s);
 			world.Tick(1s);
 		}
+
+		// Get actual simulation time from Carla world object
+		timestamp = world.get_snapshot().timestamp;
+
+		// Refresh camera position
 		if(refresh_view){
 			viewer->setCameraPosition(pose.position.x, pose.position.y, 60, pose.position.x+1,
 				pose.position.y+1, 0, 0, 0, 1);
 			refresh_view = false;
 		}
-		
+
+		// Remove 3D bounding box representing the previous true pose of the ego vehicle
 		viewer->removeShape("box0");
 		viewer->removeShape("boxFill0");
+		// Measure true pose of the ego vehicle w.r.t. to the pose reference
 		Pose truePose = Pose(
 			Point(
 				vehicle->GetTransform().location.x,
@@ -387,10 +412,15 @@ int main(int arg_cnt, char * arg_vec[]) {
 				vehicle->GetTransform().rotation.roll * pi/180
 			)
 		) - poseRef;
+		// Draw a new 3D bounding box representing the current true pose of the ego vehicle
 		drawCar(truePose, 0,  Color(1,0,0), 0.7, viewer);
+		// Get the current yaw angle
 		double theta = truePose.rotation.yaw;
+		// Get the steering angle
 		double stheta = control.steer * pi/4 + theta;
+		// Remove previous rendering shape of the steering direction
 		viewer->removeShape("steer");
+		// Render the actual steering direction using a short ray
 		renderRay(
 			viewer,
 			Point(
@@ -425,9 +455,16 @@ int main(int arg_cnt, char * arg_vec[]) {
 
 			// Initialize pose with ground truth in the first step
 			if (scan_cnt==0) {
+				// Initialize ego vehicle pose
 				pose.position = truePose.position;
 				pose.rotation = truePose.rotation;
+
+				// Initialize Unscented Kalman Filter for ego vehicle tracking
+				vehicle_ukf.InitializeState(pose, timestamp)
 			}
+
+			// Get the pose estimate from the Unscented Kalman Filter
+			pose_ukf = 
 			
 			// Count the number of lidar scans
 			scan_cnt++;
@@ -447,23 +484,26 @@ int main(int arg_cnt, char * arg_vec[]) {
 			Eigen::Matrix4d matchingTransform;
 			if (scmAlgoId==0){  // NDT
 				// Set maximum number of iterations
-				int iter = 60; //25;  // 5; 10; 20; 50; 60; 100;
+				int iter = 4; //25;  // 5; 10; 20; 50; 60; 100;
 				// Set minimum transformation difference for termination conditions
 				double epsilon = 1e-6;  // 1e-1; 1e-2; 1e-3; 1e-4; 1e-5; 1e-6; 1e-7;
 				// Get final transformation matrix to match pose with measurements
-				matchingTransform = scanMatchingByNDT(mapCloud, cloudFiltered, pose, epsilon, iter);
+				matchingTransform = scanMatchingByNDT(mapCloud, cloudFiltered, pose_ukf, epsilon, iter);
 			}
 			else {  // ICP
 				// Set maximum number of iterations
-				int iter = 15; // 5; 10; 20; 50;
+				int iter = 4; // 5; 10; 15; 20; 50;
 				// Set minimum transformation difference for termination conditions
-				double epsilon = 1e-4;  // 1e-1; 1e-2; 1e-3; 1e-4;				
+				double epsilon = 1e-6;  // 1e-1; 1e-2; 1e-3; 1e-4;				
 				// Get final transformation matrix to match pose with measurements
-				matchingTransform = scanMatchingByICP(mapCloud, cloudFiltered, pose, epsilon, iter);
+				matchingTransform = scanMatchingByICP(mapCloud, cloudFiltered, pose_ukf, epsilon, iter);
 			}
 			
 			// TODO: Find pose transform by using ICP or NDT matching
 			pose = getPose(matchingTransform);
+
+			// Trigger Kalman Filter update cycle on the latest pose estimate obtained from scan matching
+    		vehicle_ukf.UpdateCycle(pose, timestamp);
 
 			// TODO: Transform scan so it aligns with ego's actual pose and render that scan
 			PointCloudT::Ptr transformedScan (new PointCloudT);
@@ -478,13 +518,15 @@ int main(int arg_cnt, char * arg_vec[]) {
 			// Remove all shapes and redraw
 			viewer->removeAllShapes();
 			drawCar(pose, 1,  Color(0,1,0), 0.35, viewer);
-          
-          	double poseError = sqrt(
-				  (truePose.position.x - pose.position.x) * (truePose.position.x - pose.position.x) + 
-				  (truePose.position.y - pose.position.y) * (truePose.position.y - pose.position.y)
+
+			// Update pose error
+			double poseError = sqrt(
+				(truePose.position.x - pose.position.x) * (truePose.position.x - pose.position.x) + 
+				(truePose.position.y - pose.position.y) * (truePose.position.y - pose.position.y)
 			);
 			if(poseError > maxError)
 				maxError = poseError;
+			// Update driven distance
 			double distDriven = sqrt(
 				(truePose.position.x) * (truePose.position.x) + (truePose.position.y) * (truePose.position.y)
 			);

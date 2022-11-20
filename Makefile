@@ -177,6 +177,42 @@ helper.cpp.s:
 	$(MAKE) -f CMakeFiles/cloud_loc.dir/build.make CMakeFiles/cloud_loc.dir/helper.cpp.s
 .PHONY : helper.cpp.s
 
+
+
+# target to generate assembly for a file
+c3-main.cpp.s:
+	$(MAKE) -f CMakeFiles/cloud_loc.dir/build.make CMakeFiles/cloud_loc.dir/c3-main.cpp.s
+.PHONY : c3-main.cpp.s
+
+helper.o: ukf.cpp.o
+
+.PHONY : ukf.o
+
+# target to build an object file
+helper.cpp.o:
+	$(MAKE) -f CMakeFiles/cloud_loc.dir/build.make CMakeFiles/cloud_loc.dir/ukf.cpp.o
+.PHONY : ukf.cpp.o
+
+helper.i: ukf.cpp.i
+
+.PHONY : ukf.i
+
+# target to preprocess a source file
+helper.cpp.i:
+	$(MAKE) -f CMakeFiles/cloud_loc.dir/build.make CMakeFiles/cloud_loc.dir/ukf.cpp.i
+.PHONY : ukf.cpp.i
+
+helper.s: ukf.cpp.s
+
+.PHONY : ukf.s
+
+# target to generate assembly for a file
+helper.cpp.s:
+	$(MAKE) -f CMakeFiles/cloud_loc.dir/build.make CMakeFiles/cloud_loc.dir/ukf.cpp.s
+.PHONY : ukf.cpp.s
+
+
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -192,6 +228,9 @@ help:
 	@echo "... helper.o"
 	@echo "... helper.i"
 	@echo "... helper.s"
+	@echo "... ukf.o"
+	@echo "... ukf.i"
+	@echo "... ukf.s"
 .PHONY : help
 
 
