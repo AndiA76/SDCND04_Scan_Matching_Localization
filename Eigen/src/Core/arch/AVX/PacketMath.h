@@ -544,11 +544,13 @@ template<> EIGEN_STRONG_INLINE Packet8i psub<Packet8i>(const Packet8i& a, const 
 
 template<> EIGEN_STRONG_INLINE Packet8f pnegate(const Packet8f& a)
 {
-  return _mm256_sub_ps(_mm256_set1_ps(0.0),a);
+  const Packet8f mask = _mm256_castsi256_ps(_mm256_set1_epi32(0x80000000));
+  return _mm256_xor_ps(a, mask);
 }
 template<> EIGEN_STRONG_INLINE Packet4d pnegate(const Packet4d& a)
 {
-  return _mm256_sub_pd(_mm256_set1_pd(0.0),a);
+  const Packet4d mask = _mm256_castsi256_pd(_mm256_set1_epi64x(0x8000000000000000ULL));
+  return _mm256_xor_pd(a, mask);
 }
 template<> EIGEN_STRONG_INLINE Packet8i pnegate(const Packet8i& a)
 {
@@ -1132,7 +1134,9 @@ template<> EIGEN_STRONG_INLINE Packet8i pabs(const Packet8i& a)
 template<> EIGEN_STRONG_INLINE Packet8h  psignbit(const Packet8h&  a) { return _mm_srai_epi16(a, 15); }
 template<> EIGEN_STRONG_INLINE Packet8bf psignbit(const Packet8bf& a) { return _mm_srai_epi16(a, 15); }
 template<> EIGEN_STRONG_INLINE Packet8f  psignbit(const Packet8f&  a) { return _mm256_castsi256_ps(parithmetic_shift_right<31>((Packet8i)_mm256_castps_si256(a))); }
+#ifdef EIGEN_VECTORIZE_AVX2
 template<> EIGEN_STRONG_INLINE Packet4d  psignbit(const Packet4d& a)  { return _mm256_castsi256_pd(parithmetic_shift_right<63>((Packet4l)_mm256_castpd_si256(a))); }
+#endif
 
 template<> EIGEN_STRONG_INLINE Packet8f pfrexp<Packet8f>(const Packet8f& a, Packet8f& exponent) {
   return pfrexp_generic(a,exponent);

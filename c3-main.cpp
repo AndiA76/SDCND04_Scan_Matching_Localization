@@ -464,7 +464,7 @@ int main(int arg_cnt, char * arg_vec[]) {
 			}
 
 			// Get the pose estimate from the Unscented Kalman Filter
-			pose_ukf = 
+			pose_ukf = vehicle_ukf.GetPoseEstimate()
 			
 			// Count the number of lidar scans
 			scan_cnt++;
