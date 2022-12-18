@@ -6,6 +6,12 @@
 //  Copyright © 2012 - 2021, Udacity, Inc.
 //  Copyright © 2022 Andreas Albrecht
 // ============================================================================
+// 
+// Declaration of data structures and helper functions for ego vehicle localization
+// using Lidar point clouds and scan matching algorithms.
+
+#ifndef HELPER_H
+#define HELPER_H
 
 #include <pcl/io/pcd_io.h>
 #include <pcl/visualization/pcl_visualizer.h>
@@ -18,7 +24,8 @@ typedef pcl::PointCloud<PointT> PointCloudT;
 
 using namespace std;
 
-const double pi = M_PI;
+
+const double PI = M_PI;
 
 struct Point{
 	double x, y, z;
@@ -116,28 +123,39 @@ struct BoxQ
 };
 
 Eigen::Matrix4d transform2D(double theta, double xt, double yt);
+
 Eigen::Matrix4d transform3D(
 	double yaw, double pitch, double roll, double xt, double yt, double zt
 );
+
 Pose getPose(Eigen::Matrix4d matrix);
+
 double getDistance(Point p1, Point p2);
+
 double minDistance(Point p1, vector<Point> points);
+
 void print4x4Matrix (const Eigen::Matrix4d & matrix);
+
 void print4x4Matrixf (const Eigen::Matrix4f & matrix);
+
 void renderPointCloud(
 	pcl::visualization::PCLVisualizer::Ptr& viewer,
 	const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
 	std::string name, Color color, int renderSize = 4
 );
+
 void renderRay(
 	pcl::visualization::PCLVisualizer::Ptr& viewer, Point p1, Point p2,
 	std::string name, Color color
 );
+
 void renderPath(
 	pcl::visualization::PCLVisualizer::Ptr& viewer, const PointCloudT::Ptr& cloud,
 	std::string name, Color color
 );
+
 Eigen::Quaternionf getQuaternion(float theta);
+
 void renderBox(
 	pcl::visualization::PCLVisualizer::Ptr& viewer, BoxQ box, int id,
 	Color color, float opacity
@@ -216,16 +234,16 @@ struct Lidar{
 	pcl::PointCloud<pcl::PointXYZ>::Ptr scan(vector<LineSegment> walls){
 
 		pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new PointCloudT); 
-		double deltaTheta = (2*pi)/double(res);
+		double deltaTheta = (2*PI)/double(res);
 		double residue = .1*deltaTheta;
-		for(double angle = theta; angle < theta + 2*pi - residue ; angle += deltaTheta ){
+		for(double angle = theta; angle < theta + 2*PI - residue ; angle += deltaTheta ){
 
 			LineSegment ray;
 
 			//cout << "angle " << angle << endl;
 
 			// check if angle is vertical
-			if( ceil(tan(angle-pi/2)*1000)/1000 == 0){
+			if( ceil(tan(angle-PI/2)*1000)/1000 == 0){
 
 				//cout << "vertical" << endl;
 
@@ -284,3 +302,5 @@ struct Lidar{
 		y += step * sin(theta);
 	}
 };
+
+#endif  // HELPER_H

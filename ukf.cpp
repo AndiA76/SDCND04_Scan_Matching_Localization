@@ -8,12 +8,12 @@
 // Implementation of an Unscented Kalman Filter class for tracking 2D vehicle
 // motion using a continuous turn rate continuous velocity (CTRV) motion model.
 
-#include "Eigen/Dense"
-#include "helper.h"
-#include "ukf.h"
-
 #include <iostream>     // std::cout, std::fixed
 #include <iomanip>      // std::setprecision
+
+//#include "Eigen/Dense"
+//#include "helper.h"
+#include "ukf.h"
 
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
@@ -29,18 +29,18 @@ UKF::UKF() {
     is_initialized_ = false;
 
     // Process noise standard deviation longitudinal acceleration in m/s^2
-    std_a_ = 2.0;
+    std_a_ = 2.0;  // 1.0; 2.0 => initial guess
     std_a_square_ = std_a_ * std_a_;
     // Process noise standard deviation yaw acceleration in rad/s^2
-    std_yawdd_ = 2.0;
+    std_yawdd_ = 2.0;  // 1.0; 2.0 => initial guess
     std_yawdd_square_ = std_yawdd_ * std_yawdd_;
 
     // Lidar scan matching localization measurement noise standard deviation position x in m (cartesian coordinates)
-    std_lidar_x_ = 0.15;
+    std_lidar_x_ = 0.15;  // 0.15 => initial guess 0.5 => too high
     // Lidar scan matching localization measurement noise standard deviation position y in m (cartesian coordinates)
-    std_lidar_y_ = 0.15;
+    std_lidar_y_ = 0.15;  // 0.15 => initial guess 0.5 => too high
     // Lidar scan matching localization measurement noise standard deviation yaw angle in rad (cartesian coordinates)
-    std_lidar_yaw_ = 0.5;
+    std_lidar_yaw_ = 0.5;  // 0.5 => initial guess 1.0 => too high
 
     // Dimension of the original state vector using contant turn rate constant velocity model (CTRV)
     n_x_ = 5;
@@ -104,10 +104,10 @@ UKF::~UKF() {}
  */
 void UKF::InitializeState(Pose initialPose, double timestamp_s) {
     // Initialize Kalman Filter state vector using initial ground truth pose
-    double px   = pose.position.x;          // x-position of the ego vehicle
-    double py   = pose.position.y;          // y-position of the ego vehicle
+    double px   = initialPose.position.x;   // x-position of the ego vehicle
+    double py   = initialPose.position.y;   // y-position of the ego vehicle
     double v    = 0.0;                      // velocity of the ego vehicle
-    double yaw  = pose.rotation.yaw;        // yaw angle of the ego vehicle
+    double yaw  = initialPose.rotation.yaw; // yaw angle of the ego vehicle
     double yawd = 0.0;                      // yaw rate of the ego vehicle
 
     // Initialize state vector x
@@ -239,9 +239,9 @@ void UKF::GenerateSigmaPoints() {
         Xsig_aug_.col(i + 1)            = x_aug_ + sig_spread_ * L.col(i);
         Xsig_aug_.col(i + 1 + n_x_aug_) = x_aug_ - sig_spread_ * L.col(i);
 
-        // Yaw angle sigma point normalization modulo +/- M_PI
-        while (Xsig_aug_(3, i) > M_PI) Xsig_aug_(3, i) -= M_PI_x_2_;
-        while (Xsig_aug_(3, i) < -M_PI) Xsig_aug_(3, i) += M_PI_x_2_;
+        // Yaw angle sigma point normalization modulo +/- PI
+        while (Xsig_aug_(3, i) > M_PI) Xsig_aug_(3, i) -= M_PI_X_2;
+        while (Xsig_aug_(3, i) < -M_PI) Xsig_aug_(3, i) += M_PI_X_2;
     }
 }
 
@@ -260,7 +260,7 @@ void UKF::PredictSigmaPoints(double delta_t) {
         double px       = Xsig_aug_(0, i); // x-position relative to the ego car
         double py       = Xsig_aug_(1, i); // y-position relative to the ego car
         double v        = Xsig_aug_(2, i); // longitudinal velocity
-        double yaw      = Xsig_aug_(3, i); // yaw angle [-M_PI, +M_PI]
+        double yaw      = Xsig_aug_(3, i); // yaw angle [-PI, +PI]
         double yawd     = Xsig_aug_(4, i); // yaw rate
         double nu_a     = Xsig_aug_(5, i); // linear accelaration noise
         double nu_yawdd = Xsig_aug_(6, i); // angular acceleration noise
@@ -274,9 +274,9 @@ void UKF::PredictSigmaPoints(double delta_t) {
         // Predict next yaw angle
         yaw_pred = yaw + yawd * delta_t;
 
-        // Predicted yaw angle normalization modulo +/- M_PI
-        while (yaw_pred > M_PI) yaw_pred -= M_PI_x_2_;
-        while (yaw_pred < -M_PI) yaw_pred += M_PI_x_2_;
+        // Predicted yaw angle normalization modulo +/- PI
+        while (yaw_pred > M_PI) yaw_pred -= M_PI_X_2;
+        while (yaw_pred < -M_PI) yaw_pred += M_PI_X_2;
 
         // Predict next yaw rate = const. (assumption)
         yawd_pred = yawd;
@@ -309,9 +309,9 @@ void UKF::PredictSigmaPoints(double delta_t) {
         yaw_pred  = yaw_pred + nu_yaw;
         yawd_pred = yawd_pred + nu_yawd;
 
-        // Predicted yaw angle normalization modulo +/- M_PI
-        while (yaw_pred > M_PI) yaw_pred  -= M_PI_x_2_;
-        while (yaw_pred < -M_PI) yaw_pred += M_PI_x_2_;
+        // Predicted yaw angle normalization modulo +/- PI
+        while (yaw_pred > M_PI) yaw_pred  -= M_PI_X_2;
+        while (yaw_pred < -M_PI) yaw_pred += M_PI_X_2;
 
 #if DEBUG
         std::cout << "Process noise effect on the predicted state vector" << std::endl;
@@ -351,9 +351,9 @@ void UKF::PredictStateMeanAndCovariance() {
         x_pred += weights_(i) * Xsig_pred_.col(i);
     }
 
-    // Predicted yaw angle normalization modulo +/- M_PI
-    while (x_pred(3) > M_PI) x_pred(3) -= M_PI_x_2_;
-    while (x_pred(3) < -M_PI) x_pred(3) += M_PI_x_2_;
+    // Predicted yaw angle normalization modulo +/- PI
+    while (x_pred(3) > M_PI) x_pred(3) -= M_PI_X_2;
+    while (x_pred(3) < -M_PI) x_pred(3) += M_PI_X_2;
 
     // Predict state (process noise) covariance matrix
     MatrixXd P_pred = MatrixXd::Zero(n_x_, n_x_);
@@ -361,9 +361,9 @@ void UKF::PredictStateMeanAndCovariance() {
         // State residual
         VectorXd x_diff = Xsig_pred_.col(i) - x_pred;
 
-        // Yaw angle residual normalization modulo +/- M_PI
-        while (x_diff(3) > M_PI) x_diff(3) -= M_PI_x_2_;
-        while (x_diff(3) < -M_PI) x_diff(3) += M_PI_x_2_;
+        // Yaw angle residual normalization modulo +/- PI
+        while (x_diff(3) > M_PI) x_diff(3) -= M_PI_X_2;
+        while (x_diff(3) < -M_PI) x_diff(3) += M_PI_X_2;
 
         // Final predicted state covarinace matrix
         P_pred += weights_(i) * x_diff * x_diff.transpose();
@@ -405,7 +405,7 @@ void UKF::Prediction(double delta_t) {
 /**
  * @brief Predict and update the state and the state covariance matrix using a Lidar scan matching localization measurement.
  * 
- * @param meas_package The measurement at k+1
+ * @param measuredPose The measured pose at k+1
  */
 void UKF::UpdateLidar(Pose measuredPose) {
     // Set measurement dimension for 2D Lidar scan matching localization (x and y point position and yaw angle)
@@ -430,13 +430,13 @@ void UKF::UpdateLidar(Pose measuredPose) {
         double px   = Xsig_pred_(0, i);  // x-position of the ego car
         double py   = Xsig_pred_(1, i);  // y-position of the ego car
         double v    = Xsig_pred_(2, i);  // longitudinal velocity
-        double yaw  = Xsig_pred_(3, i);  // yaw angle [-M_PI, +M_PI]
+        double yaw  = Xsig_pred_(3, i);  // yaw angle [-PI, +PI]
         double yawd = Xsig_pred_(4, i);  // yaw rate
 
         // Measurement model in Cartesian coordinates
         Zsig(0, i) = Xsig_pred_(0, i);  // x-position (px)
         Zsig(1, i) = Xsig_pred_(1, i);  // y-position (py)
-        Zsig(2, i) = Xsig_pred_(3, i);  // yaw angle [-M_PI, +M_PI]
+        Zsig(2, i) = Xsig_pred_(3, i);  // yaw angle [-PI, +PI]
     }
 
     // Calculate'predicted mean measurement (n_sig_ = 2 * n_x_aug_+ 1 simga points)
@@ -460,8 +460,13 @@ void UKF::UpdateLidar(Pose measuredPose) {
 
     // Remark: All measurements are measured relative to the ego car
 
-    // Get true received measurements
-    VectorXd z = meas_package.raw_measurements_;  // true received measurement
+    // Create vector for true received pose measurement
+    VectorXd z = VectorXd::Zero(n_z);
+
+    // Get true received pose measurement
+    z(0) = measuredPose.position.x;   // measured x-position of the ego vehicle
+    z(1) = measuredPose.position.y;   // measured y-position of the ego vehicle
+    z(2) = measuredPose.rotation.yaw; // measured yaw angle of the ego vehicle
 
     // Create cross correlation matrix between sigma points in state space and in measurement space
     MatrixXd Tc = MatrixXd::Zero(n_x_, n_z);
@@ -471,9 +476,9 @@ void UKF::UpdateLidar(Pose measuredPose) {
         // State residual
         VectorXd x_diff = Xsig_pred_.col(i) - x_;
 
-        // Yaw angle residual normalization modulo +/- M_PI
-        while (x_diff(3) > M_PI) x_diff(3) -= M_PI_x_2_;
-        while (x_diff(3) < -M_PI) x_diff(3) += M_PI_x_2_;
+        // Yaw angle residual normalization modulo +/- PI
+        while (x_diff(3) > M_PI) x_diff(3) -= M_PI_X_2;
+        while (x_diff(3) < -M_PI) x_diff(3) += M_PI_X_2;
 
         // Measurement residual
         VectorXd z_diff = Zsig.col(i) - z_pred;
@@ -492,9 +497,9 @@ void UKF::UpdateLidar(Pose measuredPose) {
     x_ = x_ + K * z_diff;
     P_ = P_ - K * S * K.transpose();
 
-    // Yaw angle normalization modulo +/- M_PI
-    while (x_(3) > M_PI) x_(3) -= M_PI_x_2_;
-    while (x_(3) < -M_PI) x_(3) += M_PI_x_2_;
+    // Yaw angle normalization modulo +/- PI
+    while (x_(3) > M_PI) x_(3) -= M_PI_X_2;
+    while (x_(3) < -M_PI) x_(3) += M_PI_X_2;
 
     // Calculate Normalized Innovation Squared (NIS) update for Lidar
     NIS_lidar_ = z_diff.transpose() * S.inverse() * z_diff;
@@ -504,14 +509,14 @@ void UKF::UpdateLidar(Pose measuredPose) {
 /**
  * @brief Get current pose estimate from UKF.
  * 
- * @return Pose
+ * @return estimatedPose
  */
 Pose UKF::GetPoseEstimate() {
     // Extract states from current vector x_
     double px       = x_(0); // x-position relative to the ego car
     double py       = x_(1); // y-position relative to the ego car
     double v        = x_(2); // longitudinal velocity
-    double yaw      = x_(3); // yaw angle [-M_PI, +M_PI]
+    double yaw      = x_(3); // yaw angle [-PI, +PI]
     double yawd     = x_(4); // yaw rate
 
     // Set pz, pitch and roll to zero (considere only 2D motion)
@@ -520,9 +525,9 @@ Pose UKF::GetPoseEstimate() {
     double roll = 0.0;
 
     // Set current pose
-    Pose pose(
+    Pose estimatedPose(
 		Point(px, py, pz),
 		Rotate(yaw, pitch, roll)
 	);
-	return pose;
+	return estimatedPose;
 }

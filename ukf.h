@@ -10,14 +10,14 @@
 #ifndef UKF_H
 #define UKF_H
 
-# define M_PI 3.141592653589793238462643383279502884L /* pi */
-
-#include "Eigen/Dense"  // https://eigen.tuxfamily.org/dox/GettingStarted.html
-#include "helper.h"
+#include <math.h>
+#include <Eigen/Dense>
 
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
 
+// #include "Eigen/Dense"  // https://eigen.tuxfamily.org/dox/GettingStarted.html
+#include "helper.h"
 
 class UKF
 {
@@ -86,21 +86,21 @@ class UKF
     /**
      * @brief Predict and update the state and the state covariance matrix using a Lidar measurement
      * 
-     * @param meas_package The measurement at k+1
+     * @param measuredPose The measurement ego vehicle pose at k+1
      */
-    void UpdateLidar(MeasurementPackage meas_package);
+    void UpdateLidar(Pose measuredPose);
 
     /**
      * @brief Get current pose estimate from UKF.
      * 
-     * @return Pose
+     * @return estimatedPose
      */
-    Pose UKF::GetPoseEstimate();
+    Pose GetPoseEstimate();
 
     /* STATIC CONSTANTS */
     
     // 2 * PI
-    static constexpr double M_PI_x_2_ = 2 * M_PI;
+    static constexpr double M_PI_X_2 = 2 * M_PI;
 
     /* CLASS MEMBER VARIALBES */
 
@@ -140,7 +140,7 @@ class UKF
     // Augmented state vector
     Eigen::VectorXd x_aug_;
 
-    / Augmented state covariance matrix
+    // Augmented state covariance matrix
     Eigen::MatrixXd P_aug_;
 
     // Augmented sigma points matrix

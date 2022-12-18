@@ -6,6 +6,9 @@
 //  Copyright © 2012 - 2021, Udacity, Inc.
 //  Copyright © 2022 Andreas Albrecht
 // ============================================================================
+//
+// Implementation of data structures and helper functions for ego vehicle localization
+// using Lidar point clouds and scan matching algorithms.
 
 #include "helper.h"
 
