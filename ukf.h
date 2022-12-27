@@ -5,10 +5,8 @@
 //  Copyright © 2022 Andreas Albrecht
 // ============================================================================
 
-// Declaration of an Unscented Kalman Filter (UKF) class for tracking 2D vehicle
-// motion using a user-defined kinematic vehicle motion model, which can be either
-// - a continuous turn rate continuous velocity model (CTRV)
-// - or a bicycle model (BM).
+// Declaration of an Unscented Kalman Filter (UKF) class for 2D vehicle motion
+// tracking using a kinematic bicycle model.
 
 #ifndef UKF_H
 #define UKF_H
@@ -112,7 +110,7 @@ class UKF
      * 
      * @return Estimated pose of the ego vehicle.
      */
-    Pose GetPoseEstimate()
+    Pose GetPoseEstimate();
     
     /**
      * @brief Get estimate of the current ego vehicle velocity from UKF.

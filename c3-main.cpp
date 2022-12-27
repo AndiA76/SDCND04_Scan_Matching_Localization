@@ -13,6 +13,7 @@
 #include <carla/client/ActorBlueprint.h>
 #include <carla/client/BlueprintLibrary.h>
 #include <carla/client/Map.h>
+#include <carla/geom/Vector3D.h>
 #include <carla/geom/Location.h>
 #include <carla/geom/Transform.h>
 #include <carla/client/Sensor.h>
@@ -111,9 +112,9 @@ void drawCar(Pose pose, int num, Color color, double alpha,
 	BoxQ box;
 	box.bboxTransform = Eigen::Vector3f(pose.position.x, pose.position.y, 0);
 	box.bboxQuaternion = getQuaternion(pose.rotation.yaw);
-	box.cube_length = L_VEHICLE;  	// 4
-	box.cube_width = W_VEHICLE;		// 2
-	box.cube_height = H_VEHICLE;	// 2
+	box.cube_length = L_VEHICLE;  // 4
+	box.cube_width = W_VEHICLE;   // 2
+	box.cube_height = H_VEHICLE;  // 2
 	renderBox(viewer, box, num, color, alpha);
 }
 
@@ -135,8 +136,9 @@ int main(int arg_cnt, char * arg_vec[]) {
 	std::string scmAlgoName = "Normal Distributions Transform (NDT)";
 	// Do not use Unscented Kalman Filter support by default
 	bool useUKF = false;
+	std::cout << "arg_cnt = " << arg_cnt << std::endl;
 	// Check number of input arguments
-	if ((arg_cnt <= 2) && (arg_cnt <= 3)) {
+	if ((arg_cnt >= 2) && (arg_cnt <= 3)) {
 		if (strcmp(arg_vec[1],"NDT")==0) {
 			// Use NDT as scan matching algorithm if selected
 			scmAlgoId = 0;
@@ -288,13 +290,15 @@ int main(int arg_cnt, char * arg_vec[]) {
 	// Initialize true and predicted velocity of the ego vehicle
 	double trueVelocity = 0;
 	double predVelocity = 0;
+	double egoVelocity = 0;
 
 	// Initialize (maximum) 2D position estimation error w.r.t. the true pose of the ego vehicle
 	double posError = 0;
 	double maxPosError = 0;
 
-	// Initialize driven distance
+	// Initialize driven distance at the current and the previous time step
 	double distDriven = 0;
+	double distDriven_prev = 0;
 
 	// Initialize (maximum) 2D orientation estimation error
 	double rotError = 0;
@@ -323,6 +327,9 @@ int main(int arg_cnt, char * arg_vec[]) {
 		t = timestamp.platform_timestamp;
 		// Calculate time difference
 		delta_t = t - t_prev;
+		std::cout << "t       = " << t << " s" << std::endl;
+		std::cout << "t_prev  = " << t_prev << " s" << std::endl;
+		std::cout << "delta_t = " << delta_t << " s" << std::endl;
 
 		// Refresh camera position focusing on the predicted ego vehicle position
 		if(refresh_view) {
@@ -349,12 +356,25 @@ int main(int arg_cnt, char * arg_vec[]) {
 		) - poseRef;
 		// Draw a new 3D bounding box representing the current true pose of the ego vehicle
 		drawCar(truePose, 0,  Color(1,0,0), 0.7, viewer);
-		// Get the current velocity of the ego vehicle
-		trueVelocity = vehicle->GetVelocity();
+		// Measure the current velocity of the ego vehicle
+		double vl = vehicle->GetVelocity().Length();
+		double vx = vehicle->GetVelocity().x;
+		double vy = vehicle->GetVelocity().y;
+		double vz = vehicle->GetVelocity().z;
+		std::cout << "vl = " << vl << " m/s" << std::endl;
+		std::cout << "vx = " << vx << " m/s" << std::endl;
+		std::cout << "vy = " << vy << " m/s" << std::endl;
+		std::cout << "vz = " << vz << " m/s" << std::endl;
+		trueVelocity = sqrt(
+			(vehicle->GetVelocity().x * vehicle->GetVelocity().x) + 
+			(vehicle->GetVelocity().y * vehicle->GetVelocity().y)
+		);
+		std::cout << "trueVelocity = " << trueVelocity << " m/s" << std::endl;
 		// Get the current yaw angle of the ego vehicle in global cooridnates
 		theta = truePose.rotation.yaw;
-		// Get the current steering angle of the front wheels
+		// Measure the current steering angle of the front wheels
 		trueSteeringAngle = control.steer * PI/4;
+		std::cout << "trueSteeringAngle = " << trueSteeringAngle << " rad" << std::endl;
 		// Get the current orientation angle of the front wheels in global coordinates
 		stheta = trueSteeringAngle + theta;
 		// Remove previous rendering shape of the steering direction
@@ -455,12 +475,6 @@ int main(int arg_cnt, char * arg_vec[]) {
 			// Find the current pose using the pose transform from ICP or NDT scan matching
 			predPose = getPose(matchingTransform);
 
-			// Measure the current velocity of the ego vehicle
-			trueVelocity = vehicle->GetVelocity();
-
-			// Measure the current steering angle of the ego vehicle front wheels
-			trueSteeringAngle = control.steer * PI/4;
-
 			// Trigger Kalman Filter update cycle on the latest measurements
 			if (useUKF) {
 				vehicle_ukf.UpdateCycle(predPose, trueVelocity, trueSteeringAngle, t);
@@ -478,7 +492,7 @@ int main(int arg_cnt, char * arg_vec[]) {
 
 			// Remove all shapes and redraw
 			viewer->removeAllShapes();
-			drawCar(pose, 1,  Color(0,1,0), 0.35, viewer);
+			drawCar(predPose, 1,  Color(0,1,0), 0.35, viewer);
 
 			// Update 2D position estimation error
 			posError = sqrt(
@@ -488,20 +502,30 @@ int main(int arg_cnt, char * arg_vec[]) {
 			// Remember maximum 2D position estimation error
 			if(posError > maxPosError)
 				maxPosError = posError;
+			// Store driven distance up to the previous time step
+			distDriven_prev = distDriven;
 			// Update driven distance
 			distDriven = sqrt(
 				(truePose.position.x) * (truePose.position.x) + (truePose.position.y) * (truePose.position.y)
 			);
+			// Calculate velocity from driven distance and time increment
+			if (delta_t > 0) {
+				egoVelocity = (distDriven - distDriven_prev) / delta_t;
+			}
+			std::cout << "egoVelocity = " << egoVelocity << " m/s" << std::endl;
+			if (useUKF) {
+				std::cout << "predVelocity = " << predVelocity << " m/s" << std::endl;
+			}
 			// Update 2D orientation estimation error
 			rotError = truePose.rotation.yaw - predPose.rotation.yaw;
 			// Remember maximum 2D orientation estimation error
-			if(rotError > maxRotError)
-				maxRotError = rotError;
+			if(abs(rotError) > maxRotError)
+				maxRotError = abs(rotError);
 			// Update 2D velocity estimation error (should be small)
 			velError = trueVelocity - predVelocity;
 			// Remember maximum 2D velocity estimation error
-			if(velError > maxVelError)
-				maxVelError = velError;
+			if(abs(velError) > maxVelError)
+				maxVelError = abs(velError);
 
 			// Show driven distance and (max.) pose error in the visualizer window
 			viewer->removeShape("dist");

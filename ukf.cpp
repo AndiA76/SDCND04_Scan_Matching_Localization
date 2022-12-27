@@ -6,7 +6,7 @@
 // ============================================================================
 
 // Implementation of an Unscented Kalman Filter (UKF) class for 2D vehicle motion
-// tracking using a kinematic bicycle model (BM).
+// tracking using a kinematic bicycle model.
 
 #include <iostream>     // std::cout, std::fixed
 #include <iomanip>      // std::setprecision
@@ -47,21 +47,21 @@ UKF::UKF(double front_axle_dist, double rear_axle_dist, double max_steering_angl
     std_yawdd_ = 2.0;  // 1.0; 2.0 => initial guess
     std_yawdd_square_ = std_yawdd_ * std_yawdd_;
     // Process noise standard deviation for steering rate change (angular acceleration noise) in rad/s^2
-    std_sdeltadd_ = 0.1;
+    std_sdeltadd_ = 0.1;  // 0.1
     std_sdeltadd_square_ = std_sdeltadd_ * std_sdeltadd_;
 
     // Lidar scan matching localization measurement noise standard deviation for position x in m (cartesian coordinates)
-    std_lidar_scm_x_ = 0.15;  // 0.15 => initial guess 0.5 => too high
+    std_lidar_scm_x_ = 0.1;  // 0.15 => initial guess 0.5 => too high
     // Lidar scan matching localization measurement noise standard deviation for position y in m (cartesian coordinates)
-    std_lidar_scm_y_ = 0.15;  // 0.15 => initial guess 0.5 => too high
+    std_lidar_scm_y_ = 0.1;  // 0.15 => initial guess 0.5 => too high
     // Lidar scan matching localization measurement noise standard deviation for yaw angle in rad (cartesian coordinates)
-    std_lidar_scm_yaw_ = 0.5;  // 0.5 => initial guess 1.0 => too high
+    std_lidar_scm_yaw_ = 0.2;  // 0.25, 0.5 => initial guess 1.0 => too high
 
     // Velocity measurement noise standard deviation
-    std_wheel_speed_sensor_ = 0.05;
+    std_wheel_speed_sensor_ = 0.2;  // 0.05, 0.25, 0.3
 
     // Steering angle mesurement noise standard deviation
-    std_steering_angle_sensor_ = 0.05;
+    std_steering_angle_sensor_ = 0.01;  // 0.02
 
     // Dimension of the original state vector
     n_x_ = 6;  // x_ = [px py vel yaw yawd sdelta]
@@ -131,10 +131,10 @@ UKF::~UKF() {}
  */
 void UKF::InitializeState(Pose initialPose, double initialVelocity, double initialSteeringAngle, double timestamp_s) {
     // Initialize Kalman Filter state vector using initial ground truth pose plus velocity and steering angle measurement
-    double px   = initialPose.position.x;               // x-position of the ego vehicle
-    double py   = initialPose.position.y;               // y-position of the ego vehicle
-    double yaw  = initialPose.rotation.yaw;             // yaw angle of the ego vehicle
-    double yawd = velocity * tan(steeringAngle) / l_;   // yaw rate of the ego vehicle
+    double px   = initialPose.position.x;  // x-position of the ego vehicle
+    double py   = initialPose.position.y;  // y-position of the ego vehicle
+    double yaw  = initialPose.rotation.yaw;  // yaw angle of the ego vehicle
+    double yawd = initialVelocity * tan(initialSteeringAngle) / l_;  // yaw rate of the ego vehicle
 
     // Initialize state vector x_
     x_ << px, py, initialVelocity, yaw, yawd, initialSteeringAngle;
@@ -485,7 +485,7 @@ void UKF::MeasurementUpdate(Pose measuredPose, double measuredVelocity, double m
     // Limit steering angle
     if (x_(5) < -max_steering_angle_) {
         x_(5) = -max_steering_angle_;
-    } (x_(5) > max_steering_angle_) {
+    } else if (x_(5) > max_steering_angle_) {
         x_(5) = max_steering_angle_;
     }
 
