@@ -54,6 +54,12 @@ cc::Vehicle::Control control;
 std::chrono::time_point<std::chrono::system_clock> currentTime;
 vector<ControlState> cs;
 
+// Geometric dimensions of the ego vehicle
+constexpr double L_VEHICLE = 4.0;	// distance between front and rear axle
+constexpr double W_VEHICLE = 2.0;	// vehicle width
+constexpr double H_VEHICLE = 2.0;	// vehicle height
+
+
 bool refresh_view = false;
 // Handle keyboard events
 void keyboardEventOccurred(const pcl::visualization::KeyboardEvent &event, void* viewer) {
@@ -105,9 +111,9 @@ void drawCar(Pose pose, int num, Color color, double alpha,
 	BoxQ box;
 	box.bboxTransform = Eigen::Vector3f(pose.position.x, pose.position.y, 0);
 	box.bboxQuaternion = getQuaternion(pose.rotation.yaw);
-	box.cube_length = 4;
-	box.cube_width = 2;
-	box.cube_height = 2;
+	box.cube_length = L_VEHICLE;  	// 4
+	box.cube_width = W_VEHICLE;		// 2
+	box.cube_height = H_VEHICLE;	// 2
 	renderBox(viewer, box, num, color, alpha);
 }
 
@@ -130,10 +136,7 @@ int main(int arg_cnt, char * arg_vec[]) {
 	// Do not use Unscented Kalman Filter support by default
 	bool useUKF = false;
 	// Check number of input arguments
-	if (arg_cnt==3) {
-		std::cout << arg_vec[0] << std::endl;
-		std::cout << arg_vec[1] << std::endl;
-		std::cout << arg_vec[2] << std::endl;
+	if ((arg_cnt <= 2) && (arg_cnt <= 3)) {
 		if (strcmp(arg_vec[1],"NDT")==0) {
 			// Use NDT as scan matching algorithm if selected
 			scmAlgoId = 0;
@@ -144,39 +147,32 @@ int main(int arg_cnt, char * arg_vec[]) {
 			scmAlgoName = "Iterative Closest Point (ICP)";
 		} else {
 			std::cout << "Error: Wrong input argument ... program stopped." << std::endl;
-			std::cout << "Hint: Use either './cloud_loc ICP' or './cloud_loc NDT'." << std::endl;
+			std::cout << "Hint: Use either 'ICP' or 'NDT' as first input argument." << std::endl;
+			std::cout << "Example calls: './cloud_loc ICP (...)' or './cloud_loc NDT (...)'" << std::endl;
 			return 1;
 		}
 		std::cout << "Using " << scmAlgoName << " (user setting) for scan matching." << std::endl;
-		if (strcmp(arg_vec[2],"UKF")==0) {
-			useUKF = true;
-		} else {
-			std::cout << "Error: Wrong input argument ... program stopped." << std::endl;
-			std::cout << "Hint: Use either './cloud_loc ICP UKF' or './cloud_loc NDT UKF'." << std::endl;
-			return 1;
+		if (arg_cnt==3) {
+			if (strcmp(arg_vec[2],"UKF")==0) {
+				useUKF = true;
+			} else {
+				std::cout << "Error: Wrong input argument ... program stopped." << std::endl;
+				std::cout << "Hint: Use 'UKF' as second input argument." << std::endl;
+				std::cout << "Example call: './cloud_loc (...) UKF'" << std::endl;
+				return 1;
+			}
+			std::cout << "Using Unscented Kalman Filter to support tracking 2D ego vehicle motion." << std::endl;
 		}
-		std::cout << "Using Unscented Kalman Filter to support tracking ego vehicle pose." << std::endl;
-	} else if (arg_cnt==2) {
-		std::cout << arg_vec[0] << std::endl;
-		std::cout << arg_vec[1] << std::endl;
-		if (strcmp(arg_vec[1],"NDT")==0) {
-			// Use NDT as scan matching algorithm if selected
-			scmAlgoId = 0;
-			scmAlgoName = "Normal Distributions Transform (NDT)";
-		} else if (strcmp(arg_vec[1],"ICP")==0) {
-			// Use ICP as scan matching algorithm if selected
-			scmAlgoId = 1;
-			scmAlgoName = "Iterative Closest Point (ICP)";
-		}
-		std::cout << "Using " << scmAlgoName << " (user setting) for scan matching." << std::endl;
 	} else if (arg_cnt==1) {
-		std::cout << arg_vec[0] << std::endl;
 		// Use NDT as default scan matching algorithm if no argument is passed as input
 		std::cout << "Using " << scmAlgoName << " (default) for scan matching." << std::endl;
 	} else {
 		std::cout << "Error: Wrong number of input arguments .. program stopped." << std::endl;
 		return 1;
 	}
+
+	// Declare simulation time and simulation time step
+	double t, t_prev, delta_t;
 
 	// Init lidar scan counter
 	int scan_cnt = 0;
@@ -196,6 +192,9 @@ int main(int arg_cnt, char * arg_vec[]) {
 	// auto timestamp = world.GetSnapshot().GetTimestamp();
 	auto world_snapshot = world.GetSnapshot();
 	auto timestamp = world_snapshot.GetTimestamp();
+
+	// Initialize current simulation time
+	t = timestamp.platform_timestamp;
 
 	// Create lidar
 	auto lidar_bp = *(blueprint_library->Find("sensor.lidar.ray_cast"));
@@ -219,15 +218,8 @@ int main(int arg_cnt, char * arg_vec[]) {
   	viewer->setBackgroundColor (0, 0, 0);
 	viewer->registerKeyboardCallback(keyboardEventOccurred, (void*)&viewer);
 
-	// Initialize initial pose of the ego vehicle
+	// Initialize actor for the ego vehicle
 	auto vehicle = boost::static_pointer_cast<cc::Vehicle>(ego_actor);
-	Pose pose(Point(0,0,0), Rotate(0,0,0));
-
-	// Create instance of an Unscented Kalman Filter for ego vehicle tracking
-	UKF vehicle_ukf;
-
-	// Initialize initial pose estimate of the Uncented Kalman Filter
-	Pose pose_ukf(Point(0,0,0), Rotate(0,0,0));
 
 	// Load map
 	PointCloudT::Ptr mapCloud(new PointCloudT);
@@ -263,7 +255,10 @@ int main(int arg_cnt, char * arg_vec[]) {
 		}
 
 	});
-	
+
+	// Create instance of an Unscented Kalman Filter for 2D ego vehicle motion tracking
+	UKF vehicle_ukf(L_VEHICLE/2, L_VEHICLE/2, PI/4);
+
 	// Initialize reference for the true starting pose of the ego vehicle
 	Pose poseRef(
 		Point(
@@ -278,9 +273,36 @@ int main(int arg_cnt, char * arg_vec[]) {
 		)
 	);
 
-	// Initialize maximum positioning error w.r.t. true pose of the ego vehicle
-	double maxError = 0;
-	double maxError_ukf = 0;
+	// Initialize true pose and predicted pose of the ego vehicle
+	Pose truePose(Point(0,0,0), Rotate(0,0,0));
+	Pose predPose(Point(0,0,0), Rotate(0,0,0));
+
+	// Initialize yaw angle and orientation angle of the front wheels in global coordinates
+	double theta = 0;
+	double stheta = 0;
+
+	// Initialize true and predicted steering angle of the front wheels relative to the ego vehicle axis
+	double trueSteeringAngle = 0;
+	double predSteeringAngle = 0;
+
+	// Initialize true and predicted velocity of the ego vehicle
+	double trueVelocity = 0;
+	double predVelocity = 0;
+
+	// Initialize (maximum) 2D position estimation error w.r.t. the true pose of the ego vehicle
+	double posError = 0;
+	double maxPosError = 0;
+
+	// Initialize driven distance
+	double distDriven = 0;
+
+	// Initialize (maximum) 2D orientation estimation error
+	double rotError = 0;
+	double maxRotError = 0;
+
+	// Initialize (maximum) 2D velocity estimation error
+	double velError = 0;
+	double maxVelError = 0;	
 
 	// Start simulation loop
 	while (!viewer->wasStopped()) {
@@ -295,10 +317,17 @@ int main(int arg_cnt, char * arg_vec[]) {
 		timestamp = world_snapshot.GetTimestamp();
 		std::cout << "timestamp = " << timestamp << "." << std::endl;
 
-		// Refresh camera position
+		// Remember previous simulation time
+		t_prev = t;
+		// Update simulation time
+		t = timestamp.platform_timestamp;
+		// Calculate time difference
+		delta_t = t - t_prev;
+
+		// Refresh camera position focusing on the predicted ego vehicle position
 		if(refresh_view) {
-			viewer->setCameraPosition(pose.position.x, pose.position.y, 60, pose.position.x+1,
-				pose.position.y+1, 0, 0, 0, 1);
+			viewer->setCameraPosition(predPose.position.x, predPose.position.y, 60, predPose.position.x+1,
+				predPose.position.y+1, 0, 0, 0, 1);
 			refresh_view = false;
 		}
 
@@ -306,7 +335,7 @@ int main(int arg_cnt, char * arg_vec[]) {
 		viewer->removeShape("box0");
 		viewer->removeShape("boxFill0");
 		// Measure true pose of the ego vehicle w.r.t. to the pose reference
-		Pose truePose = Pose(
+		truePose = Pose(
 			Point(
 				vehicle->GetTransform().location.x,
 				vehicle->GetTransform().location.y,
@@ -320,10 +349,14 @@ int main(int arg_cnt, char * arg_vec[]) {
 		) - poseRef;
 		// Draw a new 3D bounding box representing the current true pose of the ego vehicle
 		drawCar(truePose, 0,  Color(1,0,0), 0.7, viewer);
-		// Get the current yaw angle
-		double theta = truePose.rotation.yaw;
-		// Get the steering angle
-		double stheta = control.steer * PI/4 + theta;
+		// Get the current velocity of the ego vehicle
+		trueVelocity = vehicle->GetVelocity();
+		// Get the current yaw angle of the ego vehicle in global cooridnates
+		theta = truePose.rotation.yaw;
+		// Get the current steering angle of the front wheels
+		trueSteeringAngle = control.steer * PI/4;
+		// Get the current orientation angle of the front wheels in global coordinates
+		stheta = trueSteeringAngle + theta;
 		// Remove previous rendering shape of the steering direction
 		viewer->removeShape("steer");
 		// Render the actual steering direction using a short ray
@@ -343,6 +376,7 @@ int main(int arg_cnt, char * arg_vec[]) {
 			Color(0,1,0)
 		);
 
+		// Set initial control state
 		ControlState actuate(0, 0, 1);
 		if(cs.size() > 0){
 			actuate = cs.back();
@@ -359,27 +393,34 @@ int main(int arg_cnt, char * arg_vec[]) {
 			// Set new_scan flag
 			new_scan = true;
 
-			// Initialize pose with ground truth in the first step
+			// Initialize the predictions with with ground truth in the first step
 			if (scan_cnt==0) {
-				// Initialize ego vehicle pose
-				pose.position = truePose.position;
-				pose.rotation = truePose.rotation;
+				// Initialize the predicted pose of the ego vehicle with ground truth
+				predPose = truePose;
 
-				// Initialize Unscented Kalman Filter for ego vehicle tracking
+				// Initial the predicted velocity of the ego vehicle with ground truth
+				predVelocity = trueVelocity;
+
+				// Initialize the predicted steering angle of the ego vehicle with ground truth
+				predSteeringAngle = trueSteeringAngle;
+
+				// Initialize Unscented Kalman Filter for 2D ego vehicle motion tracking
 				if (useUKF) {
-					vehicle_ukf.InitializeState(pose, timestamp.platform_timestamp);
+					vehicle_ukf.InitializeState(truePose, trueVelocity, trueSteeringAngle, t);
 				}
 			}
 
-			// Get the current pose estimate from the Unscented Kalman Filter
+			// Get the current pose, velocity and steering angle estimate from the Unscented Kalman Filter
 			if (useUKF) {
-				pose_ukf = vehicle_ukf.GetPoseEstimate();
+				predPose = vehicle_ukf.GetPoseEstimate();
+				predVelocity = vehicle_ukf.GetVelocityEstimate();
+				predSteeringAngle = vehicle_ukf.GetSteeringAngleEstimate();
 			}
 
 			// Count the number of lidar scans
 			scan_cnt++;
 
-			// TODO: Filter scan using voxel filter
+			// Filter scan using voxel filter
 			// Declare variable for the voxel grid filter
 			pcl::VoxelGrid<PointT> vgf;
 			// Initialize voxel grid filter with latest scan cloud
@@ -400,118 +441,100 @@ int main(int arg_cnt, char * arg_vec[]) {
 				int iter = 4; //25;  // 4; 5; 10; 20; 50; 60; 100;
 				// Set minimum transformation difference for termination conditions
 				double epsilon = 1e-6;  // 1e-1; 1e-2; 1e-3; 1e-4; 1e-5; 1e-6; 1e-7;
-				// Get final transformation matrix to match pose with measurements
-				if (useUKF) {
-					matchingTransform = scanMatchingByNDT(mapCloud, cloudFiltered, pose_ukf, epsilon, iter);
-				} else {
-					matchingTransform = scanMatchingByNDT(mapCloud, cloudFiltered, pose, epsilon, iter);
-				}				
+				// Get final pose transformation matrix to match the predicted pose with Lidar measurements
+				matchingTransform = scanMatchingByNDT(mapCloud, cloudFiltered, predPose, epsilon, iter);
 			} else {  // ICP
 				// Set maximum number of iterations
 				int iter = 16; // 4; 5; 10; 15; 20; 50;
 				// Set minimum transformation difference for termination conditions
 				double epsilon = 1e-4;  // 1e-1; 1e-2; 1e-3; 1e-4; 1e-5; 1e-6; 1e-7;		
-				// Get final transformation matrix to match pose with measurements
-				if (useUKF) {
-					matchingTransform = scanMatchingByICP(mapCloud, cloudFiltered, pose_ukf, epsilon, iter);
-				} else {
-					matchingTransform = scanMatchingByICP(mapCloud, cloudFiltered, pose, epsilon, iter);
-				}
+				// Get final pose transformation matrix to match the predicted pose with Lidar measurements
+				matchingTransform = scanMatchingByICP(mapCloud, cloudFiltered, predPose, epsilon, iter);
 			}
 			
-			// TODO: Find pose transform by using ICP or NDT matching
-			pose = getPose(matchingTransform);
+			// Find the current pose using the pose transform from ICP or NDT scan matching
+			predPose = getPose(matchingTransform);
 
-			// Trigger Kalman Filter update cycle on the latest pose estimate obtained from scan matching
+			// Measure the current velocity of the ego vehicle
+			trueVelocity = vehicle->GetVelocity();
+
+			// Measure the current steering angle of the ego vehicle front wheels
+			trueSteeringAngle = control.steer * PI/4;
+
+			// Trigger Kalman Filter update cycle on the latest measurements
 			if (useUKF) {
-				vehicle_ukf.UpdateCycle(pose, timestamp.platform_timestamp);
+				vehicle_ukf.UpdateCycle(predPose, trueVelocity, trueSteeringAngle, t);
 			}
 
-			// TODO: Transform scan so it aligns with ego's actual pose and render that scan
+			// Transform scan so it aligns with ego's actual pose and render that scan
 			PointCloudT::Ptr transformedScan (new PointCloudT);
 			pcl::transformPointCloud (*cloudFiltered, *transformedScan, matchingTransform);
 
 			// Hide scan point cloud
 			viewer->removePointCloud("scan");
 
-			// TODO: Change `scanCloud` below to your transformed scan
+			// Change `scanCloud` below to your transformed scan
 			renderPointCloud(viewer, transformedScan, "scan", Color(1,0,0) );
 
 			// Remove all shapes and redraw
 			viewer->removeAllShapes();
 			drawCar(pose, 1,  Color(0,1,0), 0.35, viewer);
 
-			// Update true pose error
-			double poseError = sqrt(
-				(truePose.position.x - pose.position.x) * (truePose.position.x - pose.position.x) + 
-				(truePose.position.y - pose.position.y) * (truePose.position.y - pose.position.y)
+			// Update 2D position estimation error
+			posError = sqrt(
+				(truePose.position.x - predPose.position.x) * (truePose.position.x - predPose.position.x) + 
+				(truePose.position.y - predPose.position.y) * (truePose.position.y - predPose.position.y)
 			);
-			if(poseError > maxError)
-				maxError = poseError;
-			// Update true driven distance
-			double distDriven = sqrt(
+			// Remember maximum 2D position estimation error
+			if(posError > maxPosError)
+				maxPosError = posError;
+			// Update driven distance
+			distDriven = sqrt(
 				(truePose.position.x) * (truePose.position.x) + (truePose.position.y) * (truePose.position.y)
 			);
+			// Update 2D orientation estimation error
+			rotError = truePose.rotation.yaw - predPose.rotation.yaw;
+			// Remember maximum 2D orientation estimation error
+			if(rotError > maxRotError)
+				maxRotError = rotError;
+			// Update 2D velocity estimation error (should be small)
+			velError = trueVelocity - predVelocity;
+			// Remember maximum 2D velocity estimation error
+			if(velError > maxVelError)
+				maxVelError = velError;
 
-			if (useUKF) {
-				// Update Unscented Kalman Filter pose estimation error
-				double poseError_ukf = sqrt(
-					(truePose.position.x - pose_ukf.position.x) * (truePose.position.x - pose_ukf.position.x) + 
-					(truePose.position.y - pose_ukf.position.y) * (truePose.position.y - pose_ukf.position.y)
-				);
-				if(poseError_ukf > maxError_ukf)
-					maxError_ukf = poseError_ukf;
-
-				// Update driven distance estimated by Unscented Kalman Filter
-				double distDriven_ukf = sqrt(
-					(pose_ukf.position.x) * (pose_ukf.position.x) + (pose_ukf.position.y) * (pose_ukf.position.y)
-				);
-				std::cout << "pose_ukf.position.x = " << pose_ukf.position.x << std::endl;
-				std::cout << "pose_ukf.position.y = " << pose_ukf.position.y << std::endl;
-				std::cout << "pose_ukf.position.z = " << pose_ukf.position.z << std::endl;
-				std::cout << "poseError_ukf       = " << poseError_ukf << std::endl;
-				std::cout << "maxError_ukf        = " << maxError_ukf << std::endl;
-				std::cout << "distDriven_ukf      = " << distDriven_ukf << std::endl;
-			
-				// Show driven distance and (max.) pose error in the visualizer window
-				viewer->removeShape("dist");
-				viewer->addText(
-					"Distance (UKF): "+to_string(distDriven)+" m ("+to_string(distDriven_ukf)+" m)", 100, 100, 24, 1.0, 1.0, 1.0, "dist",0
-				);
-				viewer->removeShape("derror");
-				viewer->addText(
-					"Pose error (UKF): "+to_string(poseError)+" m ("+to_string(poseError_ukf)+" m)", 100, 75, 24, 1.0, 1.0, 1.0, "derror",0
-				);
-				viewer->removeShape("maxE");
-				viewer->addText(
-					"Max Error (UKF): "+to_string(maxError)+" m ("+to_string(maxError_ukf)+" m)", 100, 50, 24, 1.0, 1.0, 1.0, "maxE",0
-				);
-			} else {
-				// Show driven distance and (max.) pose error in the visualizer window
-				viewer->removeShape("dist");
-				viewer->addText(
-					"Distance: "+to_string(distDriven)+" m", 100, 100, 24, 1.0, 1.0, 1.0, "dist",0
-				);
-				viewer->removeShape("derror");
-				viewer->addText(
-					"Pose error: "+to_string(poseError)+" m", 100, 75, 24, 1.0, 1.0, 1.0, "derror",0
-				);
-				viewer->removeShape("maxE");
-				viewer->addText(
-					"Max Error: "+to_string(maxError)+" m", 100, 50, 24, 1.0, 1.0, 1.0, "maxE",0
-				);
-			}
+			// Show driven distance and (max.) pose error in the visualizer window
+			viewer->removeShape("dist");
+			viewer->addText(
+				"Distance: "+to_string(distDriven)+" m", 100, 100, 20, 1.0, 1.0, 1.0, "dist",0
+			);
+			viewer->removeShape("posErr");
+			viewer->addText(
+				"Pose error: "+to_string(posError)+" m (max. pose error: "+to_string(maxPosError)+" m)",
+				100, 80, 20, 1.0, 1.0, 1.0, "posErr", 0
+			);
+			viewer->removeShape("rotErr");
+			viewer->addText(
+				"Rot. error: "+to_string(rotError)+" rad (max. rot. error: "+to_string(maxRotError)+" rad)",
+				100, 60, 20, 1.0, 1.0, 1.0, "rotErr", 0
+			);
+			viewer->removeShape("velErr");
+			viewer->addText(
+				"Vel. error: "+to_string(rotError)+" m/s (max. vel. error: "+to_string(maxRotError)+" m/s)",
+				100, 40, 20, 1.0, 1.0, 1.0, "velErr", 0
+			);
 
 			// Show passed / failed test results in the visualizer window
-			if(maxError > 1.2 || distDriven >= 170.0 ) {
+			if(maxPosError > 1.2 || distDriven >= 170.0 ) {
 				viewer->removeShape("eval");
-			if(maxError > 1.2) {
-				viewer->addText("Try Again", 100, 25, 24, 1.0, 0.0, 0.0, "eval",0);
-			} else {
-				viewer->addText("Passed!", 100, 25, 24, 0.0, 1.0, 0.0, "eval",0);
+				if(maxPosError > 1.2) {
+					viewer->addText("Try Again", 100, 20, 20, 1.0, 0.0, 0.0, "eval", 0);
+				} else {
+					viewer->addText("Passed!", 100, 20, 20, 0.0, 1.0, 0.0, "eval", 0);
+				}
 			}
-		}
 
+			// Clear point cloud
 			pclCloud.points.clear();
 		}
   	}

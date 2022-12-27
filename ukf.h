@@ -5,7 +5,10 @@
 //  Copyright © 2022 Andreas Albrecht
 // ============================================================================
 
-// Declaration of an Unscented Kalman Filter class for vehicle pose estimation
+// Declaration of an Unscented Kalman Filter (UKF) class for tracking 2D vehicle
+// motion using a user-defined kinematic vehicle motion model, which can be either
+// - a continuous turn rate continuous velocity model (CTRV)
+// - or a bicycle model (BM).
 
 #ifndef UKF_H
 #define UKF_H
@@ -26,10 +29,15 @@ class UKF
     /* CLASS MEMBER FUNCTIONS */
 
     /**
-     * @brief Constructor.
+     * @brief Constructor: Initializes a new Unscented Kalman Filter instance to track 2D ego vehicle motion.
+     *  
+     * @param front_axle_dist Distance between center of mass and front axle of the ego vehicle.
      * 
+     * @param rear_axle_dist Distance between center of mass and rear axle of the ego vehicle.
+     * 
+     * @param sdelta_max Maximum steering angle of the ego vehicle.
      */
-    UKF();
+    UKF(double front_axle_dist, double rear_axle_dist, double max_steering_angle);
 
     /**
      * @brief Destructor.
@@ -37,37 +45,42 @@ class UKF
      */
     virtual ~UKF();
 
-    // Initialize Unscented Kalman Filter state.
     /**
-     * @brief Initialize Unscented Kalman Filter state.
+     * @brief Initialize the state vector of the Unscented Kalman Filter
      * 
      * @param initialPose Initial pose of the vehicle to be tracked.
+     *  
+     * @param initialVelocity Initial longitudinal velocity of the ego vehicle in m/s obtained from wheel speed sensor
      * 
-     * @param timestamp_s Timestamp in seconds.
-     * 
-     */
-    void InitializeState(Pose initialPose, double timestamp_s);
-
-    /**
-     * @brief Unscented Kalman Filter Prediction and Measurement Update Cycle using Lidar Scan Matching.
-     * 
-     * @param measuredPose Measured pose of the vehicle to be tracked obtained by Lidar scan matching.
+     * @param initialSteeringAngle Initial steering angle of the ego vehicle in rad obtained from steering angle sensor
      * 
      * @param timestamp_s Current timestamp in seconds.
      * 
      */
-    void UpdateCycle(Pose measuredPose, double timestamp_s);
+    void InitializeState(Pose initialPose, double initialVelocity, double initialSteeringAngle, double timestamp_s);
 
     /**
-     * @brief Generate sigma points for the augmented state vector.
+     * @brief Unscented Kalman Filter Prediction and Measurement Update Cycle using Lidar Scan Matching.
      * 
+     * @param measuredPose Measured pose of the vehicle from Lidar scan matching localization.
+     * 
+     * @param measuredVelocity Measured longitudinal velocity of the ego vehicle in m/s from wheel speed sensor
+     * 
+     * @param measuredSteeringAngle Measured steering angle of the ego vehicle in rad from steering angle sensor
+     * 
+     * @param timestamp_s Timestamp of the latest pose measurement in seconds.
      */
-    void GenerateSigmaPoints(); // AugmentSigmaPoints()
+    void UpdateCycle(Pose measuredPose, double measuredVelocity, double measuredSteeringAngle, double timestamp_s);
 
     /**
-     * @brief Predict sigma points for the augmented state vector.
+     * @brief Generate sigma points Xsig_aug_ for the augmented state vector.
+     */
+    void GenerateSigmaPoints(); 
+
+    /**
+     * @brief Predict sigma points Xsig_pred_ for the augmented state vector.
      * 
-     * @param delta_t Time between k and k+1 in s
+     * @param delta_t Time difference between time step k and time step k+1 in s.
      */
     void PredictSigmaPoints(double delta_t);
 
@@ -84,18 +97,36 @@ class UKF
     void Prediction(double delta_t);
 
     /**
-     * @brief Predict and update the state and the state covariance matrix using a Lidar measurement
+     * @brief Measurement update of state and state covariance matrix using Lidar scan matching localization and odometry measurement.
      * 
-     * @param measuredPose The measurement ego vehicle pose at k+1
+     * @param measuredPose Measured pose of the ego vehicle at time step k+1 (obtained from Lidar scan matching localization)
+     * 
+     * @param measuredVelocity Measured velocity of the ego vehicle at time step k+1 (obtained from odometry)
+     * 
+     * @param measuredSteeringAngle Measured steering angle of the ego vehicle at time step k+1 (obtained from odometry)
      */
-    void UpdateLidar(Pose measuredPose);
+    void MeasurementUpdate(Pose measuredPose, double measuredVelocity, double measuredSteeringAngle);
 
     /**
-     * @brief Get current pose estimate from UKF.
+     * @brief Get estimate of the current ego vehicle pose from UKF.
      * 
-     * @return estimatedPose
+     * @return Estimated pose of the ego vehicle.
      */
-    Pose GetPoseEstimate();
+    Pose GetPoseEstimate()
+    
+    /**
+     * @brief Get estimate of the current ego vehicle velocity from UKF.
+     * 
+     * @return Estimated velocity of the ego vehicle.
+     */
+    double GetVelocityEstimate();
+
+    /**
+     * @brief Get estimate of the current ego vehicle steering angle from UKF.
+     * 
+     * @return Estimated steering angle of the ego vehicle.
+     */
+    double GetSteeringAngleEstimate();
 
     /* STATIC CONSTANTS */
     
@@ -110,10 +141,18 @@ class UKF
     // Timestamp of the previous step in s when the state is true
     long long time_s_;
 
+    // Geometric dimensions of the ego vehicle
+    double l_f_;    // Distance between center of mass and front axle
+    double l_r_;    // Distance between center of mass and rear axle
+    double l_;      // Overall distance between front and rear axle
+
+    // Maximum steering angle (symmetrix in both directions) in rad
+    double max_steering_angle_;
+
     // State vector dimension
     int n_x_;
 
-    // State vector: [x-position, y-position, longitudinal velocity, yaw angle, yaw rate] in SI units and rad
+    // State vector in SI units and rad
     Eigen::VectorXd x_;
 
     // State covariance matrix
@@ -146,28 +185,38 @@ class UKF
     // Augmented sigma points matrix
     Eigen::MatrixXd Xsig_aug_;
 
-    // Process noise standard deviation longitudinal acceleration in m/s^2 (cartesian coordinates)
+    // Process noise standard deviation and covariance for linear acceleration (longitudinal axis) in m/s^2
     double std_a_;
     double std_a_square_;
 
-    // Process noise standard deviation yaw acceleration in rad/s^2 (cartesian coordinates)
+    // Process noise standard deviation and covariance for angular acceleration (yaw angle) in rad/s^2
     double std_yawdd_;
     double std_yawdd_square_;
 
-    // Lidar scan matching localization measurement noise standard deviation position x in m (cartesian coordinates)
-    double std_lidar_x_;
+    // Process noise standard deviation and covariance for angular acceleration (steering angle) in rad/s^2
+    double std_sdeltadd_;
+    double std_sdeltadd_square_;
 
-    // Lidar scan matching localization measurement noise standard deviation position y in m (cartesian coordinates)
-    double std_lidar_y_;
+    // Lidar scan matching localization measurement noise standard deviation for position x in m (cartesian coordinates)
+    double std_lidar_scm_x_;
 
-    // Lidar scan matching localization measurement noise standard deviation yaw angle in rad (cartesian coordinates)
-    double std_lidar_yaw_;
+    // Lidar scan matching localization measurement noise standard deviation for position y in m (cartesian coordinates)
+    double std_lidar_scm_y_;
 
-    // Lidar scan matching localization measurement noise covariance matrix
-    Eigen::MatrixXd R_lidar_;
+    // Lidar scan matching localization measurement noise standard deviation for yaw angle in rad (cartesian coordinates)
+    double std_lidar_scm_yaw_;
 
-    // Normalized Innovation Squared (NIS) value for Lidar scan matching localization measurement
-    double NIS_lidar_;
+    // Velocity measurement noise standard deviation in m/s (cartesian coordinates)
+    double std_wheel_speed_sensor_;
+
+    // Steering angle measurement noise standard deviation in rad (cartesian coordinates)
+    double std_steering_angle_sensor_;
+
+    // Measurement noise covariance matrix
+    Eigen::MatrixXd R_meas_;
+
+    // Normalized Innovation Squared (NIS) value for measurement update
+    double NIS_meas_;
 };
 
 #endif  // UKF_H
