@@ -201,3 +201,51 @@ void renderBox(
     viewer->setShapeRenderingProperties(
 		pcl::visualization::PCL_VISUALIZER_OPACITY, opacity*0.3, cubeFill);
 }
+
+
+// Implementation of a time-discrete exponential moving average filter class
+/**
+ * @brief Constructor: Initializes a new exponential moving average filter instance.
+ */
+MOVAVG::MOVAVG() {
+	// Initialize moving average with zero
+	x_avg_ = 0;
+
+	// Initialize decay constant (must be greater zero)
+	alpha_ = 0.1;
+}
+
+/** 
+ * @brief Desctructor.
+ */
+MOVAVG::~MOVAVG() {}
+
+/**
+ * @brief Initialize exponential moving average filter.
+ * 
+ * @param x_0: Initial input to the exponential moving average filter.
+ */
+void MOVAVG::initialize(double x_0) {
+	// Initialize moving average
+	x_avg_ = x_0;
+}
+
+/**
+ * @brief Update exponential moving average filter.
+ * 
+ * @param x_n: Input to the moving average filter at time step t_n.
+ */
+void MOVAVG::update(double x_n) {
+	// Update exponential moving average
+	x_avg_ = alpha_ * x_n + (1 - alpha_) * x_avg_;
+}
+
+/**
+ * @brief Get the current moving average value.
+ * 
+ * @returns Current moving average.
+ */
+double MOVAVG::getMovAvg() {
+	// Return the current moving average value
+	return x_avg_;
+}

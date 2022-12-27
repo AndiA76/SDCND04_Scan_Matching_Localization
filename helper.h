@@ -303,4 +303,53 @@ struct Lidar{
 	}
 };
 
+// Delcaration of an exponential moving average filter class
+class MOVAVG
+{
+private:
+
+	/* PRIVATE CLASS MEMBER VARIALBES */
+
+	// moving average
+	double x_avg_;
+
+	// Decay factor
+	double alpha_;
+
+public:
+
+	/* PUBLIC CLASS MEMBER FUNCTIONS */
+
+    /**
+	 * @brief Constructor: Initializes a new exponential moving average filter instance.
+	 */
+	MOVAVG();
+
+	/**
+	 * @brief Destructor.
+	 */
+	virtual ~MOVAVG();
+
+	/**
+	 * @brief Initialize expenential moving average filter.
+	 * 
+	 * @param x_0: Initial input to the exponential moving average filter time step t_0.
+	 */
+	void initialize(double x_0);
+
+	/**
+	 * @brief Update exponential moving average filter.
+	 * 
+	 * @param x_n: New input to the exponential moving average filter at time step t_n.
+	 */
+	void update(double x_n);
+
+	/**
+	 * @brief Get current moving average.
+	 * 
+	 * @returns Current moving average.
+	 */
+	double getMovAvg();
+};
+
 #endif  // HELPER_H

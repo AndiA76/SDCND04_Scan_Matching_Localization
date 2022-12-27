@@ -290,23 +290,26 @@ int main(int arg_cnt, char * arg_vec[]) {
 	// Initialize true and predicted velocity of the ego vehicle
 	double trueVelocity = 0;
 	double predVelocity = 0;
-	double egoVelocity = 0;
 
-	// Initialize (maximum) 2D position estimation error w.r.t. the true pose of the ego vehicle
+	// Initialize (max./avg.) 2D position estimation error w.r.t. the true pose of the ego vehicle
 	double posError = 0;
 	double maxPosError = 0;
+	MOVAVG movAvgPosError;	// Init 1D moving average filter
 
 	// Initialize driven distance at the current and the previous time step
 	double distDriven = 0;
 	double distDriven_prev = 0;
 
-	// Initialize (maximum) 2D orientation estimation error
+	// Initialize (max./avg.) 2D orientation estimation error
 	double rotError = 0;
 	double maxRotError = 0;
+	MOVAVG movAvgRotError;	// Init 1D moving average filter
 
-	// Initialize (maximum) 2D velocity estimation error
+	// Initialize (max./avg.) 2D velocity estimation error
 	double velError = 0;
-	double maxVelError = 0;	
+	double maxVelError = 0;
+	double avgVelError = 0;
+	MOVAVG movAvgVelError;	// Init 1D moving average filter
 
 	// Start simulation loop
 	while (!viewer->wasStopped()) {
@@ -356,15 +359,8 @@ int main(int arg_cnt, char * arg_vec[]) {
 		) - poseRef;
 		// Draw a new 3D bounding box representing the current true pose of the ego vehicle
 		drawCar(truePose, 0,  Color(1,0,0), 0.7, viewer);
-		// Measure the current velocity of the ego vehicle
-		double vl = vehicle->GetVelocity().Length();
-		double vx = vehicle->GetVelocity().x;
-		double vy = vehicle->GetVelocity().y;
-		double vz = vehicle->GetVelocity().z;
-		std::cout << "vl = " << vl << " m/s" << std::endl;
-		std::cout << "vx = " << vx << " m/s" << std::endl;
-		std::cout << "vy = " << vy << " m/s" << std::endl;
-		std::cout << "vz = " << vz << " m/s" << std::endl;
+		// Measure the current 2D velocity of the ego vehicle
+		// double trueVelocity = vehicle->GetVelocity().Length();  // 3D vector length
 		trueVelocity = sqrt(
 			(vehicle->GetVelocity().x * vehicle->GetVelocity().x) + 
 			(vehicle->GetVelocity().y * vehicle->GetVelocity().y)
@@ -446,7 +442,7 @@ int main(int arg_cnt, char * arg_vec[]) {
 			// Initialize voxel grid filter with latest scan cloud
 			vgf.setInputCloud(scanCloud);
 			// Set voxel grid filter resolution
-			double filterResolution = 0.8; // 0.8; // 0.25; 0.5; 0.75; 0.8; 1.0; 2.0; 5.0;
+			double filterResolution = 1.0; // 0.8; // 0.25; 0.5; 0.75; 0.8; 1.0; 2.0; 5.0;
 			vgf.setLeafSize(filterResolution, filterResolution, filterResolution);
 			// Set minimum number of points per voxel grid required for the grid cell to be used
 			int minPointPerVoxel = 5;
@@ -458,14 +454,14 @@ int main(int arg_cnt, char * arg_vec[]) {
 			Eigen::Matrix4d matchingTransform;
 			if (scmAlgoId==0) {  // NDT
 				// Set maximum number of iterations
-				int iter = 4; //25;  // 4; 5; 10; 20; 50; 60; 100;
+				int iter = 4; // 25 // 4; 5; 10; 20; 50; 60; 100;
 				// Set minimum transformation difference for termination conditions
-				double epsilon = 1e-6;  // 1e-1; 1e-2; 1e-3; 1e-4; 1e-5; 1e-6; 1e-7;
+				double epsilon = 1e-4;  // 1e-1; 1e-2; 1e-3; 1e-4; 1e-5; 1e-6; 1e-7;
 				// Get final pose transformation matrix to match the predicted pose with Lidar measurements
 				matchingTransform = scanMatchingByNDT(mapCloud, cloudFiltered, predPose, epsilon, iter);
 			} else {  // ICP
 				// Set maximum number of iterations
-				int iter = 16; // 4; 5; 10; 15; 20; 50;
+				int iter = 16; // 16 // 4; 5; 10; 15; 20; 50;
 				// Set minimum transformation difference for termination conditions
 				double epsilon = 1e-4;  // 1e-1; 1e-2; 1e-3; 1e-4; 1e-5; 1e-6; 1e-7;		
 				// Get final pose transformation matrix to match the predicted pose with Lidar measurements
@@ -508,11 +504,6 @@ int main(int arg_cnt, char * arg_vec[]) {
 			distDriven = sqrt(
 				(truePose.position.x) * (truePose.position.x) + (truePose.position.y) * (truePose.position.y)
 			);
-			// Calculate velocity from driven distance and time increment
-			if (delta_t > 0) {
-				egoVelocity = (distDriven - distDriven_prev) / delta_t;
-			}
-			std::cout << "egoVelocity = " << egoVelocity << " m/s" << std::endl;
 			if (useUKF) {
 				std::cout << "predVelocity = " << predVelocity << " m/s" << std::endl;
 			}
@@ -526,26 +517,48 @@ int main(int arg_cnt, char * arg_vec[]) {
 			// Remember maximum 2D velocity estimation error
 			if(abs(velError) > maxVelError)
 				maxVelError = abs(velError);
+			// Calculate moving average of the absolute error values
+			if (scan_cnt==0) {
+				// Initialize moving average filters
+				movAvgPosError.initialize(posError);
+				movAvgRotError.initialize(rotError);
+				movAvgVelError.initialize(velError);
+			} else {
+				// Update moving average filters
+				movAvgPosError.update(posError);
+				movAvgRotError.update(rotError);
+				movAvgVelError.update(velError);
+			}
 
-			// Show driven distance and (max.) pose error in the visualizer window
+			// Show driven distance, current velocity and (max.) pose & velocity errors in the visualizer window
+			std::string scm_algo_str = (scmAlgoId==0) ? "NDT" : "ICP";
+			std::string use_ukf_str = (useUKF) ? " and UKF" : "";
+			viewer->removeShape("algoInfo");
+			viewer->addText(
+				"Using "+scm_algo_str+use_ukf_str, 100, 140, 20, 1.0, 1.0, 1.0, "algoInfo",0
+			);
 			viewer->removeShape("dist");
 			viewer->addText(
-				"Distance: "+to_string(distDriven)+" m", 100, 100, 20, 1.0, 1.0, 1.0, "dist",0
+				"Distance: "+to_string(distDriven)+" m", 100, 120, 20, 1.0, 1.0, 1.0, "dist",0
+			);
+			viewer->removeShape("speed");
+			viewer->addText(
+				"Act. speed: "+to_string(trueVelocity)+" m/s", 100, 100, 20, 1.0, 1.0, 1.0, "speed",0
 			);
 			viewer->removeShape("posErr");
 			viewer->addText(
-				"Pose error: "+to_string(posError)+" m (max. pose error: "+to_string(maxPosError)+" m)",
-				100, 80, 20, 1.0, 1.0, 1.0, "posErr", 0
+				"Pos. error: "+to_string(posError)+" m (abs(max.): "+to_string(maxPosError)+" m | exp. avg.: "+
+				to_string(movAvgPosError.getMovAvg())+" m)", 100, 80, 20, 1.0, 1.0, 1.0, "posErr", 0
 			);
 			viewer->removeShape("rotErr");
 			viewer->addText(
-				"Rot. error: "+to_string(rotError)+" rad (max. rot. error: "+to_string(maxRotError)+" rad)",
-				100, 60, 20, 1.0, 1.0, 1.0, "rotErr", 0
+				"Rot. error: "+to_string(rotError)+" rad (abs(max.): "+to_string(maxRotError)+" rad | exp. avg.: "+
+				to_string(movAvgRotError.getMovAvg())+" rad)", 100, 60, 20, 1.0, 1.0, 1.0, "rotErr", 0
 			);
 			viewer->removeShape("velErr");
 			viewer->addText(
-				"Vel. error: "+to_string(rotError)+" m/s (max. vel. error: "+to_string(maxRotError)+" m/s)",
-				100, 40, 20, 1.0, 1.0, 1.0, "velErr", 0
+				"Vel. error: "+to_string(rotError)+" m/s (abs(max.): "+to_string(maxRotError)+" m/s | exp. avg.: "+
+				to_string(movAvgVelError.getMovAvg())+" m/s)", 100, 40, 20, 1.0, 1.0, 1.0, "velErr", 0
 			);
 
 			// Show passed / failed test results in the visualizer window
