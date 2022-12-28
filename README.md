@@ -105,23 +105,24 @@ As described above you need to pass ```ICP``` as additional parameter to the fun
 The following settings have been used to meet the requirements.
 
 **Voxel filter settings:**
-- voxel grid filter resolution = 0.8 m
+- voxel grid filter resolution = 1.0 m
+- minimum number of points per voxel = 5
 
 **ICP settings:**
-- maximum number of registration iterations = 15
+- maximum number of registration iterations = 16
 - minimum transformation difference for termination conditions = 1e-4
 - maximal corresponding distance = 2.0
 - ransac outlier rejection threshold = 10
 
 **Achieved 2D position error over 170 m simulated driving distance using ICT with above settings:**
-- maximum 2D position error = approx. 0.64 m
-- average 2D position error = approx. 0.xx m
+- maximum 2D position error = approx. 0.77 m
+- average 2D position error = approx. 0.35 m
 
 The achieved results using ICP are shown below for 3 time steps at the beginning, in the middle and at the end of the simulation:
 
-<img src="screenshots/ICP_test_start_pose_2022-10-16.png"/>
-<img src="screenshots/ICP_test_mid_pose_2022-10-16.png"/>
-<img src="screenshots/ICP_test_final_pose_2022-10-16.png"/>
+<img src="screenshots/ICP_test_start_pose_2022-12-28.png"/>
+<img src="screenshots/ICP_test_mid_pose_2022-12-28.png"/>
+<img src="screenshots/ICP_test_final_pose_2022-12-28.png"/>
 
 ## Results for Normal Distributions Transform (NDT) Algorithm
 As described above you need to pass ```NDT``` as additional parameter to the function call of ```cloud_loc``` in tab 1 after the Carla simulation has been started in tab 2:
@@ -131,25 +132,25 @@ As described above you need to pass ```NDT``` as additional parameter to the fun
 The following settings have been used to meet the requirements.
 
 **Voxel filter settings:**
-- voxel grid filter resolution = 0.8 m
+- voxel grid filter resolution = 1.0 m
+- minimum number of points per voxel = 5
 
 **NDT settings:**
-- maximum number of registration iterations = 60
-- minimum transformation difference for termination conditions = 1e-6
+- maximum number of registration iterations = 4
+- minimum transformation difference for termination conditions = 1e-4
 - maximum step size for More-Thuente line search = 0.1
 - NDT grid structure resolution (VoxelGridCovariance) = 1.0
 
-**Achieved 2D position error over 170 m simulated driving distance using NDT with above settings:**
-- maximum 2D position error = approx. 0.45 m
-- average 2D position error = approx. 0.xx m
+**Achieved 2D position error over 68 m simulated driving distance using NDT with above settings:**
+- maximum 2D position error = approx. 7.93 m
+- average 2D position error = approx. 6.88 m
 
 The achieved results using NDT are shown below for 3 time steps at the beginning, in the middle and at the end of the simulation:
 
-<img src="screenshots/NDT_test_start_pose_2022-10-16.png"/>
-<img src="screenshots/NDT_test_mid_pose_2022-10-16.png"/>
-<img src="screenshots/NDT_test_final_pose_2022-10-16.png"/>
+<img src="screenshots/NDT_test_start_pose_2022-12-28.png"/>
+<img src="screenshots/NDT_test_fails_2022-12-28.png"/>
 
-Every simulation is slightly different. Therefore, NDT might work out in some cases. However, NDT mostly failed for me especially towards the tricky parts in the point cloud map roughly in the middle of the track or at the end or if the ego car sped up to quickly. Additionally using a Kalman Filter using additional sensor information to support scan matching localization helps to improve stability of 2D vehicle motion tracking.
+Using above setting NDT failed after approx. 60 m loosing track of the ego vehicle's pose. However, every simulation is slightly different. Therefore, NDT might work out in some cases. For me it worked once using 60 iterations and a minimum transformation difference of 1e-6, but then failed with the same setting another time. In most cases, NDT failed for me especially towards the trickier parts in the point cloud map in the middle range of the track or at its end. It also failed often when the ego car accelerated too quickly. Using a Kalman Filter and additional sensor information to support scan matching localization is one option to improve stability of 2D vehicle motion tracking (s. below).
 
 ## Stabilizing Scan Matching Localization using an Unscented Kalman Filter (UKF)
 After several trials with different settings for ICP or NDT it turned out that scan matching localization is very sensitive towards the initial guess of the starting pose for a new scan matching iteration. If the initial guess is only a little bit too far off scan matching looses track and cannot find the true pose any more. For instance, this happens very likely if the virtual car accelerates too quick or reaches to high a speed. One reason can be that scan matching is too slow to finish the pose estimate before the ego vehicle has moved on too far. Processing time can be reduced by decreasing the number of iterations or by using less points to align with by using a larger voxel filter grid. However, with this the precision of scan matching localization decreases, too, what can also be a failure reason. The point cloud map used in the project has some rather tricky parts (e.g. approx. in the middle and at the end of the track) where scan matching has difficulties and often looses track. A rather finer voxel grid seems to be helpful in this case, but leads also to longer processing time. Somehow, a good compromise between processing speed using only few iterations and precicion is needed. This seems to work for ICP, but not so much for NDT.
@@ -165,7 +166,8 @@ As described above you need to pass ```ICP``` and ```UKF``` as additional parame
 The following settings have been used to meet the requirements.
 
 **Voxel filter settings:**
-- voxel grid filter resolution = 0.8 m
+- voxel grid filter resolution = 1.0 m
+- minimum number of points per voxel = 5
 
 **ICP settings:**
 - maximum number of registration iterations = 16
@@ -186,8 +188,8 @@ Measurement noise:
 - standard deviation for steering angle measurement from steering angle sensor = 0.01 rad
 
 **Achieved 2D position error over 170 m simulated driving distance using ICT and UKF with above settings:**
-- maximum 2D position error = approx. 0.xx m
-- average 2D position error = approx. 0.xx m
+- maximum 2D position error = approx. 0.56 m
+- average 2D position error = approx. 0.38 m
 
 The achieved results using ICP and UKF are shown below for 3 time steps at the beginning, in the middle and at the end of the simulation:
 
@@ -203,7 +205,8 @@ As described above you need to pass ```NDT``` and ```UKF``` as additional parame
 The following settings have been used to meet the requirements.
 
 **Voxel filter settings:**
-- voxel grid filter resolution = 0.8 m
+- voxel grid filter resolution = 1.0 m
+- minimum number of points per voxel = 5
 
 **NDT settings:**
 - maximum number of registration iterations = 4
@@ -215,14 +218,16 @@ The following settings have been used to meet the requirements.
 Same as with ICP and UKF (s. above).
 
 **Achieved maximum pose error over 170 m simulated driving distance using NDT and UKF with above settings:**
-- maximum 2D position error = approx. 0.xx m
-- average 2D position error = approx. 0.xx m
+- maximum 2D position error = approx. 0.50 m
+- average 2D position error = approx. 0.19 m
 
 The achieved results using NDT and UKF are shown below for 3 time steps at the beginning, in the middle and at the end of the simulation:
 
 <img src="screenshots/NDT_UKF_test_start_pose_2022-12-28.png"/>
 <img src="screenshots/NDT_UKF_test_mid_pose_2022-12-28.png"/>
 <img src="screenshots/NDT_UKF_test_final_pose_2022-12-28.png"/>
+
+Thanks to the UKF the test passes this time although using the same settings as above where NDT failed. Thus, the additional UKF helps to improve the stability of scan matching localization, e.g. using NDT. It also helps using ICP.
 
 ## License
 Remarks: Since the the code in this repository was provided by [Udacity](https://www.udacity.com/) in a Udacity student workspace, it automatically falls under the Udacity license, too:
