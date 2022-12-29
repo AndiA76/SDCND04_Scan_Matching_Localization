@@ -442,7 +442,7 @@ int main(int arg_cnt, char * arg_vec[]) {
 			// Initialize voxel grid filter with latest scan cloud
 			vgf.setInputCloud(scanCloud);
 			// Set voxel grid filter resolution
-			double filterResolution = 1.0; // 0.8; // 0.25; 0.5; 0.75; 0.8; 1.0; 2.0; 5.0;
+			double filterResolution = 1.0; // 0.8 // 0.25; 0.5; 0.75; 0.8; 1.0; 2.0; 5.0;
 			vgf.setLeafSize(filterResolution, filterResolution, filterResolution);
 			// Set minimum number of points per voxel grid required for the grid cell to be used
 			int minPointPerVoxel = 5;
@@ -454,9 +454,9 @@ int main(int arg_cnt, char * arg_vec[]) {
 			Eigen::Matrix4d matchingTransform;
 			if (scmAlgoId==0) {  // NDT
 				// Set maximum number of iterations
-				int iter = 4; // 25 // 4; 5; 10; 20; 50; 60; 100;
+				int iter = 4; // 60 // 4; 5; 10; 20; 25; 50; 60; 100;
 				// Set minimum transformation difference for termination conditions
-				double epsilon = 1e-4;  // 1e-1; 1e-2; 1e-3; 1e-4; 1e-5; 1e-6; 1e-7;
+				double epsilon = 1e-4;  // 1e-6 // 1e-1; 1e-2; 1e-3; 1e-4; 1e-5; 1e-6; 1e-7;
 				// Get final pose transformation matrix to match the predicted pose with Lidar measurements
 				matchingTransform = scanMatchingByNDT(mapCloud, cloudFiltered, predPose, epsilon, iter);
 			} else {  // ICP

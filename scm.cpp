@@ -16,7 +16,7 @@
 // Normal Distributions Transform (NDT) Scan Matching Algorithm
 Eigen::Matrix4d scanMatchingByNDT(
 	PointCloudT::Ptr target, PointCloudT::Ptr source, Pose initialPose,
-	double epsilon = 1e-6, int maxIter = 4) {
+	double epsilon = 1e-6, int maxIter = 60) {
 
 	// Set timer to measure processing time
 	pcl::console::TicToc time;
@@ -76,7 +76,7 @@ Eigen::Matrix4d scanMatchingByNDT(
 // Iterative Closest Point (ICP) Algorithm
 Eigen::Matrix4d scanMatchingByICP(
 	PointCloudT::Ptr target, PointCloudT::Ptr source, Pose initialPose,
-	double epsilon = 1e-6, int maxIter = 4) {
+	double epsilon = 1e-4, int maxIter = 16) {
 	
 	// Set timer to measure processing time
 	pcl::console::TicToc time;
