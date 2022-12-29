@@ -204,6 +204,7 @@ void renderBox(
 
 
 // Implementation of a time-discrete exponential moving average (EMA) filter class
+// Source: https://tttapa.github.io/Pages/Mathematics/Systems-and-Control-Theory/Digital-filters/Exponential%20Moving%20Average/Exponential-Moving-Average.html
 /**
  * @brief Constructor: Initializes a new exponential moving average filter instance.
  */

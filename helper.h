@@ -321,7 +321,7 @@ public:
 
 	/* PUBLIC CLASS MEMBER FUNCTIONS */
 
-    /**
+	/**
 	 * @brief Constructor: Initializes a new exponential moving average filter instance.
 	 */
 	EMA();
