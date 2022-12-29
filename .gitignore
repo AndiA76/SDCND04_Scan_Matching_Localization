@@ -35,9 +35,11 @@
 /CMakeFiles/**/*
 
 # Carla and point cloud libary
-/libcarla-install/**/*
-/rpclib/**/*
+#/libcarla-install/**/*
+#/rpclib/**/*
 
 # tar files
 *.tgz
 
+# VSCode settings
+.VSCode

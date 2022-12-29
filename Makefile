@@ -177,6 +177,60 @@ helper.cpp.s:
 	$(MAKE) -f CMakeFiles/cloud_loc.dir/build.make CMakeFiles/cloud_loc.dir/helper.cpp.s
 .PHONY : helper.cpp.s
 
+scm.o: scm.cpp.o
+
+.PHONY : scm.o
+
+# target to build an object file
+scm.cpp.o:
+	$(MAKE) -f CMakeFiles/cloud_loc.dir/build.make CMakeFiles/cloud_loc.dir/scm.cpp.o
+.PHONY : scm.cpp.o
+
+scm.i: scm.cpp.i
+
+.PHONY : scm.i
+
+# target to preprocess a source file
+scm.cpp.i:
+	$(MAKE) -f CMakeFiles/cloud_loc.dir/build.make CMakeFiles/cloud_loc.dir/scm.cpp.i
+.PHONY : scm.cpp.i
+
+scm.s: scm.cpp.s
+
+.PHONY : scm.s
+
+# target to generate assembly for a file
+scm.cpp.s:
+	$(MAKE) -f CMakeFiles/cloud_loc.dir/build.make CMakeFiles/cloud_loc.dir/scm.cpp.s
+.PHONY : scm.cpp.s
+
+ukf.o: ukf.cpp.o
+
+.PHONY : ukf.o
+
+# target to build an object file
+ukf.cpp.o:
+	$(MAKE) -f CMakeFiles/cloud_loc.dir/build.make CMakeFiles/cloud_loc.dir/ukf.cpp.o
+.PHONY : ukf.cpp.o
+
+ukf.i: ukf.cpp.i
+
+.PHONY : ukf.i
+
+# target to preprocess a source file
+ukf.cpp.i:
+	$(MAKE) -f CMakeFiles/cloud_loc.dir/build.make CMakeFiles/cloud_loc.dir/ukf.cpp.i
+.PHONY : ukf.cpp.i
+
+ukf.s: ukf.cpp.s
+
+.PHONY : ukf.s
+
+# target to generate assembly for a file
+ukf.cpp.s:
+	$(MAKE) -f CMakeFiles/cloud_loc.dir/build.make CMakeFiles/cloud_loc.dir/ukf.cpp.s
+.PHONY : ukf.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -192,6 +246,12 @@ help:
 	@echo "... helper.o"
 	@echo "... helper.i"
 	@echo "... helper.s"
+	@echo "... scm.o"
+	@echo "... scm.i"
+	@echo "... scm.s"
+	@echo "... ukf.o"
+	@echo "... ukf.i"
+	@echo "... ukf.s"
 .PHONY : help
 
 
@@ -205,4 +265,3 @@ help:
 cmake_check_build_system:
 	$(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 0
 .PHONY : cmake_check_build_system
-
