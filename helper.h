@@ -303,8 +303,9 @@ struct Lidar{
 	}
 };
 
-// Delcaration of an exponential moving average filter class
-class MOVAVG
+// Delcaration of an exponential moving average (EMA) filter class
+// Source: https://tttapa.github.io/Pages/Mathematics/Systems-and-Control-Theory/Digital-filters/Exponential%20Moving%20Average/Exponential-Moving-Average.html
+class EMA
 {
 private:
 
@@ -323,12 +324,12 @@ public:
     /**
 	 * @brief Constructor: Initializes a new exponential moving average filter instance.
 	 */
-	MOVAVG();
+	EMA();
 
 	/**
 	 * @brief Destructor.
 	 */
-	virtual ~MOVAVG();
+	virtual ~EMA();
 
 	/**
 	 * @brief Initialize expenential moving average filter.

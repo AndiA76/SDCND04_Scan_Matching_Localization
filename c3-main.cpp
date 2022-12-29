@@ -294,7 +294,7 @@ int main(int arg_cnt, char * arg_vec[]) {
 	// Initialize (max./avg.) 2D position estimation error w.r.t. the true pose of the ego vehicle
 	double posError = 0;
 	double maxPosError = 0;
-	MOVAVG movAvgPosError;	// Init 1D moving average filter
+	EMA movAvgPosError;	// Init 1D moving average filter
 
 	// Initialize driven distance at the current and the previous time step
 	double distDriven = 0;
@@ -303,13 +303,13 @@ int main(int arg_cnt, char * arg_vec[]) {
 	// Initialize (max./avg.) 2D orientation estimation error
 	double rotError = 0;
 	double maxRotError = 0;
-	MOVAVG movAvgRotError;	// Init 1D moving average filter
+	EMA movAvgRotError;	// Init 1D moving average filter
 
 	// Initialize (max./avg.) 2D velocity estimation error
 	double velError = 0;
 	double maxVelError = 0;
 	double avgVelError = 0;
-	MOVAVG movAvgVelError;	// Init 1D moving average filter
+	EMA movAvgVelError;	// Init 1D moving average filter
 
 	// Start simulation loop
 	while (!viewer->wasStopped()) {

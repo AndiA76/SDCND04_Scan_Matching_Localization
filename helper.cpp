@@ -203,11 +203,11 @@ void renderBox(
 }
 
 
-// Implementation of a time-discrete exponential moving average filter class
+// Implementation of a time-discrete exponential moving average (EMA) filter class
 /**
  * @brief Constructor: Initializes a new exponential moving average filter instance.
  */
-MOVAVG::MOVAVG() {
+EMA::EMA() {
 	// Initialize moving average with zero
 	x_avg_ = 0;
 
@@ -218,14 +218,14 @@ MOVAVG::MOVAVG() {
 /** 
  * @brief Desctructor.
  */
-MOVAVG::~MOVAVG() {}
+EMA::~EMA() {}
 
 /**
  * @brief Initialize exponential moving average filter.
  * 
  * @param x_0: Initial input to the exponential moving average filter.
  */
-void MOVAVG::initialize(double x_0) {
+void EMA::initialize(double x_0) {
 	// Initialize moving average
 	x_avg_ = x_0;
 }
@@ -235,7 +235,7 @@ void MOVAVG::initialize(double x_0) {
  * 
  * @param x_n: Input to the moving average filter at time step t_n.
  */
-void MOVAVG::update(double x_n) {
+void EMA::update(double x_n) {
 	// Update exponential moving average
 	x_avg_ = alpha_ * x_n + (1 - alpha_) * x_avg_;
 }
@@ -245,7 +245,7 @@ void MOVAVG::update(double x_n) {
  * 
  * @returns Current moving average.
  */
-double MOVAVG::getMovAvg() {
+double EMA::getMovAvg() {
 	// Return the current moving average value
 	return x_avg_;
 }
